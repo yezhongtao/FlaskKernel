@@ -23,3 +23,25 @@ env/
 # ==============================
 /data/
 /config.json
+/staging/
+/plugins/
+
+# ==============================
+# 工具运行时（体积大，不进仓库）
+# ==============================
+/tools/packager/runtime/
+/tools/packager/settings.ini
+/tools/packager/last_run.log
+
+# ==============================
+# 运行时产物
+# ==============================
+/restart.flag
+/data/runtime.json
+/data/control.json
+*.log
+
+# ==============================
+# 插件运行时数据（不进仓库）
+# ==============================
+/plugins/*/data/

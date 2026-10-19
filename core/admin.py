@@ -28,6 +28,7 @@ from core.permission import (KERNEL_PERM_PLUGINS, KERNEL_PERM_ROUTES,
                              require_kernel_perm)
 from core.plugin_manager import ID_RE, version_ok
 from core.store import save_json
+from core.web import payload
 
 logger = get_logger(__name__)
 
@@ -244,7 +245,8 @@ def remap_route(route_id: int):
     if row is None:
         return jsonify({"ok": False, "error": "路由不存在"}), 404
 
-    new_path = _norm_path((request.form.get("path") or "").strip())
+    # 前端 App.api 发的是 JSON，HTML 表单原生提交发的是表单数据，两种都要支持
+    new_path = _norm_path(str(payload().get("path") or "").strip())
     if not new_path.startswith("/"):
         return jsonify({"ok": False, "error": "路径必须以 / 开头"}), 400
 

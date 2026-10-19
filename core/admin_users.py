@@ -19,6 +19,7 @@ from core import user_service
 from core.log import get_logger
 from core.permission import (KERNEL_PERM_USERS, require_kernel_perm)
 from core.models import PluginPermission
+from core.web import payload
 
 logger = get_logger(__name__)
 
@@ -26,11 +27,8 @@ users_bp = Blueprint("admin_users", __name__)
 
 
 def _payload() -> dict:
-    """兼容 JSON body 与表单提交。"""
-    data = request.get_json(silent=True)
-    if isinstance(data, dict):
-        return data
-    return request.form.to_dict(flat=True)
+    """兼容 JSON body 与表单提交（统一走 core.web.payload）。"""
+    return payload()
 
 
 def _bool(value, default=None):

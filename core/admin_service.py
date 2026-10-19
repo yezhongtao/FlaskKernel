@@ -34,6 +34,7 @@ from core.paths import mask_paths
 from core.permission import (KERNEL_PERM_LOGS, KERNEL_PERM_SERVICE,
                              KERNEL_PERM_SETTINGS, require_kernel_perm)
 from core.store import load_json
+from core.web import payload
 from user.model import User
 
 logger = get_logger(__name__)
@@ -71,10 +72,8 @@ def _status_payload() -> dict:
 
 
 def _json_body() -> dict:
-    data = request.get_json(silent=True)
-    if isinstance(data, dict):
-        return data
-    return request.form.to_dict(flat=True)
+    """兼容 JSON body 与表单提交（统一走 core.web.payload）。"""
+    return payload()
 
 
 # --------------------------------------------------------------------------- #

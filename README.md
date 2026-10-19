@@ -1,4 +1,84 @@
-# Flask 微内核 项目说明书
+# Flask 微内核（FlaskKernel）
+
+一个**微内核 + 插件化**的 Web 系统：内核只负责登录、权限、菜单、插件安装、日志与守护，
+所有业务功能都以 zip 插件的形式安装、启停、卸载，内核代码不随业务变化而改动。
+
+- 内核：Flask 3 + Flask-Login + Flask-SQLAlchemy（SQLite）
+- 桌面控制面板：PySide6（可选，不装也能纯 Web 运行）
+- 前端：Jinja2 + 原生 CSS/JS（无 CDN，离线可用，手机适配）
+- 插件：`plugin.json` + `hooks.py` + `templates/` + `static/`，打包成 zip 安装
+- 项目标识：名称「Flask 微内核」，图标是一个「微」字（`static/img/favicon.ico`）
+
+## 项目速览
+
+| 模块 | 能力 |
+|---|---|
+| 账号 | 登录 / 登出 / 改密 / 个人中心；可关闭自助注册；密码强度可配 |
+| 权限 | 内核权限码 + 插件权限码；超管恒真；按权限码授权；权限总览可查"谁有哪个权限" |
+| 插件 | 上传 zip 安装、启停、卸载；加载失败有错误信息；菜单与 URL 前缀自动管理 |
+| URL 映射 | 内核前缀与插件路径可改，写进 `config.json`，重启后仍生效 |
+| 服务控制 | 启动 / 停止 / 重启 / 保活；冷启动 `restart.flag`；崩溃自动拉起与安全模式 |
+| 日志 | 应用日志 / 访问日志在线查看，路径按项目相对显示 |
+| 设置 | 全量配置可视化编辑（网页「系统设置」与桌面「项目设置」同一份 schema） |
+| 前端 | 明暗主题、响应式（≤720px 表格转卡片）、SVG 图标、无第三方 CDN |
+
+### 快速开始
+
+```bat
+:: 安装依赖（建议用项目自带的 .venv）
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+:: 启动：守护进程 + Flask + 桌面控制面板
+.venv\Scripts\python.exe main.py
+
+:: 或者只跑 Web（开发调试）
+.venv\Scripts\python.exe main.py --web 8080
+```
+
+浏览器打开 `http://127.0.0.1:8080/`（端口以 `config.json → app.port` 为准；占用时自动回退
+8080 / 8000 / 5000 / 8888 / 9000）。首次启动会自动创建超级管理员，账号信息由部署者保管，
+登录后请立刻改密码；登录页不显示任何默认账号提示。
+
+| 参数 | 用途 |
+|---|---|
+| `--web <端口>` | 只跑 Flask（开发用） |
+| `--guardian <端口>` | 只跑守护进程（服务器/无桌面环境） |
+| `--ui <端口>` | 只跑桌面面板（服务需已运行） |
+| `--force` | 结束已在运行的实例后重启 |
+
+### 内置插件
+
+| 插件 | 作用 | 说明 |
+|---|---|---|
+| `yezhongtao.erp.bridge` | ERP 只读中心：单号查询、报表 PDF、打印链接、合同导出、计件、板材、提成 | 只读；文件与 PDF 走一次性令牌下载；单号缓存页 |
+| `yezhongtao.tools.preview` | 文件预览：代码高亮、Excel/CSV、Word、图片、视频、音频 | 只读；可浏览目录可配；路径受限 |
+
+两个插件都能在「插件管理」里停用，停用后菜单自动清理。
+
+### 文档
+
+| 文档 | 内容 |
+|---|---|
+| **本文件下半部分** | 完整说明书（架构、逐文件详解、配置手册、权限、守护、排障、前端） |
+| [插件开发教程](插件开发教程.md) / [.docx](插件开发教程.docx) | 从零写插件：接入、账号、权限、菜单、互调、数据、打包、独立门户 |
+| [ERP 插件说明](plugins/yezhongtao.erp.bridge/README.md) | 页面、HTTP API、内部接口、设置、只读保证 |
+| [文件预览插件说明](plugins/yezhongtao.tools.preview/README.md) | 能力、页面、接口、安全 |
+
+### 最近更新（2026-10-19）
+
+- 统一命名为 **Flask 微内核**，图标改为「微」字；登录页移除默认账号提示；
+- 新增**文件预览插件**（代码高亮 / Excel / CSV / Word / 图片 / 视频 / 音频），删除 ERP 插件的源码预览页；
+- ERP 插件新增**文件管理页**（导出文件与 PDF 可反复下载、删除）与**单号缓存页**，下载改为一次性令牌；
+- 权限总览持有人改为「N 人 + 眼睛」弹窗（权限全码、说明、持有人、超管提示）；
+- 修复插件 URL 映射重启后失效（写 `plugin.path_overrides`，蓝图前缀每次强制覆盖）；
+- 修复接口只读 `request.form` 导致前端 `App.api`（JSON）提交取不到值，统一走 `core/web.py::payload()`；
+- 前端弹窗关闭统一为全局行为（× / 关闭 / 遮罩 / Esc）；
+- 桌面面板：关闭=退出、最小化=托盘；新增「项目设置」全量配置对话框；
+- 新增 [插件开发教程](插件开发教程.md)（17 章，零前提，含完整示例插件）。
+
+---
+
+<!-- 以下内容与 项目说明文档.md 同步维护，请修改文档后重跑同步脚本，不要手改本段 -->
 
 > 版本：v1.0.0 · 适用代码：当前工作区 · 用途：学习/交接/二次开发
 >
@@ -9,7 +89,7 @@
 
 ---
 
-## 目录
+### 目录
 
 1. [项目定位与架构](#1-项目定位与架构)
 2. [目录结构与文件清单](#2-目录结构与文件清单)
@@ -27,14 +107,14 @@
 
 ---
 
-## 1. 项目定位与架构
+### 1. 项目定位与架构
 
-### 1.1 定位
+#### 1.1 定位
 
 基于 Flask 的**微内核系统（Flask 微内核）**：内核只做基础设施（登录、权限、插件、路由、日志、守护），
 所有业务功能以插件包（zip）形式安装、启停、卸载、升级。内核代码不因业务变化而改动。
 
-### 1.2 三个进程
+#### 1.2 三个进程
 
 ```
 python main.py
@@ -53,7 +133,7 @@ python main.py
 - `--ui`：只跑桌面面板（服务需已在运行）。
 - 默认：守护 + Flask + 桌面面板。
 
-### 1.3 关键设计决策
+#### 1.3 关键设计决策
 
 | 主题 | 结论 | 原因 |
 |---|---|---|
@@ -67,7 +147,7 @@ python main.py
 | 失败保护 | 滑动窗口计数 → 安全模式 | 插件反复崩溃不至于打死服务 |
 | 前端 | 原生 CSS/JS + Jinja2，无 CDN | 离线可用、EXE 打包简单、手机适配可控 |
 
-### 1.4 项目标识
+#### 1.4 项目标识
 
 - 名称统一为 **Flask 微内核**（`config.json → app.name` 默认值、登录页、侧栏、窗口标题、错误页），
   代码里不再出现「OA 系统」字样；
@@ -77,13 +157,14 @@ python main.py
 
 ---
 
-## 2. 目录结构与文件清单
+### 2. 目录结构与文件清单
 
 ```
 FlaskKernel/
 ├── main.py                     进程入口：解析参数、单实例检查、启动守护与 UI
 ├── app.py                      Flask 应用工厂 create_app()
 ├── config.json                 内核配置（全部可视化编辑，见第 6 章）
+├── README.md                   项目首页（含本说明书内容，与本文档同步维护）
 ├── 插件开发教程.md              插件编写完整教程（接入 / 账号 / 权限 / 导航 / 接口 / 独立门户）
 ├── requirements.txt            Python 依赖
 ├── restart.bat                 EXE 外部守护脚本（方案 2.4）
@@ -121,6 +202,7 @@ FlaskKernel/
 │   ├── admin_service.py        服务控制 / 系统设置 / 日志页（蓝图 admin_service）
 │   ├── config_schema.py        配置项的可编辑清单 + 校验
 │   ├── paths.py                路径展示：项目相对路径 rel_path() + 日志路径脱敏 mask_paths()
+│   ├── web.py                  请求体读取：payload() 同时兼容 JSON 与表单提交
 │   ├── routes.py               首页仪表盘 / 健康检查 / 插件静态资源
 │   ├── guardian.py             守护进程（监控、重启、安全模式、控制指令、停机引导页）
 │   ├── service_control.py      运行时状态 + 控制通道（runtime.json / control.json）
@@ -206,11 +288,11 @@ FlaskKernel/
 
 ---
 
-## 3. 逐文件详解
+### 3. 逐文件详解
 
 > 说明：`→` 表示返回值；「注意」是需要特别记住的行为。
 
-### 3.1 main.py
+#### 3.1 main.py
 
 进程入口，负责**进程编排**，不含业务逻辑。
 
@@ -232,7 +314,7 @@ FlaskKernel/
 2. 不能用 `Process.terminate()` 结束守护：这份 venv 的 `python.exe` 会再起一个子进程，
    terminate 只杀外层壳，Flask 会变孤儿继续占端口。必须 `taskkill /F /T`（`kill_pid`）。
 
-### 3.2 app.py
+#### 3.2 app.py
 
 Flask 应用工厂。
 
@@ -252,7 +334,7 @@ Flask 应用工厂。
 `page_title`、`page_sub`、`safe_mode`、`can_kernel(*codes)`、`is_superadmin`、`now`。
 模板过滤器：`|dt`（时间格式化）、`|uptime`（秒→x天x小时）、`|filesize`。
 
-### 3.3 core/config.py
+#### 3.3 core/config.py
 
 路径、默认配置、URL 前缀对象、配置读写。
 
@@ -278,7 +360,7 @@ Flask 应用工厂。
 | `update_kernel_url(key, value)` | 写 `kernel.<key>` |
 | `get_section("service")` | 取一个配置段 |
 
-### 3.4 core/store.py
+#### 3.4 core/store.py
 
 | 函数 | 说明 |
 |---|---|
@@ -286,7 +368,7 @@ Flask 应用工厂。
 | `save_json(path, data)` | 原子写：临时文件 + fsync + replace，`ensure_ascii=False` |
 | `deep_merge(base, override)` | 递归合并，override 优先，不改传入对象 |
 
-### 3.5 core/log.py
+#### 3.5 core/log.py
 
 | 函数 | 说明 |
 |---|---|
@@ -295,7 +377,7 @@ Flask 应用工厂。
 
 日志格式：`[2026-10-17 10:30:01 INFO    ] [core.plugin_manager]: 加载插件 xxx`
 
-### 3.6 core/logview.py
+#### 3.6 core/logview.py
 
 | 函数 | 说明 |
 |---|---|
@@ -306,18 +388,18 @@ Flask 应用工厂。
 | `recent_activity(limit=8)` | 首页"最近动态" |
 | `_read_tail(path, lines)` | 内部：大文件从尾部读 256KB |
 
-### 3.7 core/db.py
+#### 3.7 core/db.py
 
 ```python
 from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 ```
 
-### 3.8 core/models.py
+#### 3.8 core/models.py
 
 四张表，见第 4 章。`Plugin.to_dict()` 用于 JSON 输出。
 
-### 3.9 core/auth.py
+#### 3.9 core/auth.py
 
 | 名称 | 说明 |
 |---|---|
@@ -334,7 +416,7 @@ db = SQLAlchemy()
 | `_next_url()` | 安全的 next 跳转（只允许站内路径） |
 | `ensure_default_admin()` | 无用户时创建 `yezhongtao / 123456` |
 
-### 3.10 core/user_service.py
+#### 3.10 core/user_service.py
 
 业务逻辑集中在这里，出错抛 `ValueError`（消息直接给用户看）。
 
@@ -355,7 +437,7 @@ db = SQLAlchemy()
 | `all_permission_codes()` | 全部权限码 |
 | `stats()` | `{total, active, admins}` |
 
-### 3.11 core/permission.py
+#### 3.11 core/permission.py
 
 内核权限码：
 
@@ -376,7 +458,7 @@ db = SQLAlchemy()
 | `user_has_kernel_perm(user, *codes)` | 判断函数 |
 | `current_plugin_id()` | 从 endpoint 反推插件 id |
 
-### 3.12 core/access.py
+#### 3.12 core/access.py
 
 | 函数 | 说明 |
 |---|---|
@@ -392,7 +474,7 @@ db = SQLAlchemy()
  "method":"POST","path":"/notice/create","status":200,"duration_ms":45}
 ```
 
-### 3.13 core/plugin_context.py
+#### 3.13 core/plugin_context.py
 
 `PluginContext` 是插件唯一能摸到内核的入口。
 
@@ -410,7 +492,7 @@ db = SQLAlchemy()
 | `static_url(filename)` | 自己的静态资源 URL |
 | `log()` | 插件 logger（`plugin.<full_id>`） |
 
-### 3.14 core/plugin_manager.py
+#### 3.14 core/plugin_manager.py
 
 | 名称 | 说明 |
 |---|---|
@@ -436,7 +518,7 @@ db = SQLAlchemy()
 | `._rollback(plugin_id)` | 加载失败时回滚上下文/接口/事件 |
 | `get_context / list_providers` | 查询辅助 |
 
-### 3.15 core/admin.py（蓝图 `admin`）
+#### 3.15 core/admin.py（蓝图 `admin`）
 
 | 路由 | 方法 | 权限 | 说明 |
 |---|---|---|---|
@@ -447,7 +529,12 @@ db = SQLAlchemy()
 | `/plugins/<id>/disable` | POST | plugins | 停用 |
 | `/plugins/<id>/uninstall` | POST | plugins | 卸载（被依赖/有子插件时拒绝） |
 | `/routes` | GET | routes | URL 映射页 |
-| `/routes/<int:id>/remap` | POST | routes | 改路径（内核写回 config.json） |
+| `/routes/<int:id>/remap` | POST | routes | 改路径（内核写回 config.json 的 `plugin.path_overrides`） |
+
+**请求体读取**：前端脚本用 `App.api(...)` 提交时发的是 **JSON**，而 HTML 表单原生提交发的是
+表单数据。所以接口统一用 `core/web.py::payload()` 读取（JSON 优先，回退表单），
+不要直接写 `request.form.get(...)`——否则前端 JS 提交时会永远取不到值
+（历史 bug：`/routes/<id>/remap` 就踩过这个坑，现在两种提交都支持）。
 
 内部工具：`_safe_extract`（防路径穿越）、`_locate_manifest`、`_validate_manifest`、
 `_check_conflicts`、`_upsert_db`、`_atomic_replace`、`_trigger_restart`、`_norm_path`。
@@ -463,7 +550,7 @@ db = SQLAlchemy()
 依赖缺失、加载报错）的菜单清掉；`admin.disable` 停用时也立即删除。
 所以停用插件后刷新页面，侧栏里不会再有它的菜单。
 
-### 3.16 core/admin_users.py（蓝图 `admin_users`）
+#### 3.16 core/admin_users.py（蓝图 `admin_users`）
 
 | 路由 | 方法 | 权限 | 说明 |
 |---|---|---|---|
@@ -475,7 +562,7 @@ db = SQLAlchemy()
 | `/users/<id>/reset-password` | POST | users | 重置密码（仅超管） |
 | `/users/<id>/delete` | POST | users | 删号（仅超管，不能删自己） |
 
-### 3.17 core/admin_service.py（蓝图 `admin_service`）
+#### 3.17 core/admin_service.py（蓝图 `admin_service`）
 
 | 路由 | 方法 | 权限 | 说明 |
 |---|---|---|---|
@@ -492,7 +579,7 @@ db = SQLAlchemy()
 内部函数：`_counts()`、`_status_payload()`、`_json_body()`、`_schedule_standalone_exit()`、
 `_render_restarting()`、`_host()`。
 
-### 3.18 core/config_schema.py
+#### 3.18 core/config_schema.py
 
 | 名称 | 说明 |
 |---|---|
@@ -505,7 +592,7 @@ db = SQLAlchemy()
 | `validate_patch(patch, cfg)` | 高级 JSON 的类型/范围校验 |
 | `restart_paths_for(patch)` | 哪些字段需要重启 |
 
-### 3.19 core/routes.py
+#### 3.19 core/routes.py
 
 | 函数 | 说明 |
 |---|---|
@@ -514,7 +601,7 @@ db = SQLAlchemy()
 | `_task_payload(task_id, runtime)` | 先查 `last_restart.json`，再查 `runtime.last_task` |
 | `view_plugin_static(full_id, filename)` | 插件静态文件（10 分钟缓存） |
 
-### 3.20 core/guardian.py
+#### 3.20 core/guardian.py
 
 守护进程。`Guardian(port, base_dir=None)`。
 
@@ -537,7 +624,7 @@ db = SQLAlchemy()
 
 `_StatusHandler`：停机引导页（GET `/` 页面、GET `/status.json`、POST `/control/start|restart`）。
 
-### 3.21 core/service_control.py
+#### 3.21 core/service_control.py
 
 | 名称 | 说明 |
 |---|---|
@@ -559,7 +646,7 @@ db = SQLAlchemy()
 | `last_restart_info()` | 读 `last_restart.json` |
 | `wait_task_done(task_id, timeout)` | 服务端阻塞等待 |
 
-### 3.22 core/netutil.py
+#### 3.22 core/netutil.py
 
 | 函数 | 说明 |
 |---|---|
@@ -570,7 +657,7 @@ db = SQLAlchemy()
 | `patch_fast_getfqdn()` | 替换 `socket.getfqdn`，修 Windows 绑定卡顿 |
 | `fqdn_is_slow(host, threshold)` | 诊断用 |
 
-### 3.23 core/procutil.py
+#### 3.23 core/procutil.py
 
 | 函数 | 说明 |
 |---|---|
@@ -579,14 +666,14 @@ db = SQLAlchemy()
 | `kill_by_port(port, log)` | 清理占用端口的进程 |
 | `pid_alive(pid)` | 进程是否存活 |
 
-### 3.24 core/alert.py
+#### 3.24 core/alert.py
 
 | 函数 | 说明 |
 |---|---|
 | `send_alert(title, message, level, **extra)` | 异步 POST 到 `alert.webhook`；未配置只写日志 |
 | `_post(url, payload, timeout)` | 内部 HTTP POST |
 
-### 3.25 user/model.py
+#### 3.25 user/model.py
 
 `User(db.Model, UserMixin)`：
 
@@ -598,7 +685,7 @@ db = SQLAlchemy()
 | `check_password(pwd)` / `set_password(pwd)` | werkzeug 哈希校验/生成 |
 | `to_safe_dict()` | 不含密码的序列化 |
 
-### 3.26 ui/（PySide6）
+#### 3.26 ui/（PySide6）
 
 | 文件 | 类 | 说明 |
 |---|---|---|
@@ -619,7 +706,7 @@ db = SQLAlchemy()
 
 > `ui.minimize_to_tray=false` 时最小化就是普通最小化，不收托盘。
 
-### 3.27 tools/pack_plugin.py
+#### 3.27 tools/pack_plugin.py
 
 ```
 python tools/pack_plugin.py plugins/<full_id> [-o dist]
@@ -629,7 +716,7 @@ python tools/pack_plugin.py plugins/<full_id> [-o dist]
 函数：`validate(plugin_dir)`、`iter_files(plugin_dir)`、`pack(plugin_dir, out_dir)`、`main()`。
 这是**命令行版**，适合脚本/批量；日常开发用下面的桌面版更省事。
 
-### 3.28 tools/build_docs.py
+#### 3.28 tools/build_docs.py
 
 把 `项目说明文档.md` 转成 Word，方便打印/发人：
 
@@ -641,7 +728,7 @@ python tools/build_docs.py 项目说明文档.md -o 项目说明文档.docx
 中文统一用微软雅黑、代码用 Consolas，页脚带页码。函数：`build(md_path, out_path)`、`main()`。
 修改说明文档后重跑一次即可同步 Word 版。
 
-### 3.29 tools/packager —— 插件打包工具（桌面 UI，自包含）
+#### 3.29 tools/packager —— 插件打包工具（桌面 UI，自包含）
 
 **它是什么**：一个独立的 PySide6 桌面程序，用来把一个插件目录做成「可直接上传安装的 zip」，
 并自动把第三方依赖内置进 `libs/`。它**不 import 项目的任何模块**，代码和运行环境都在自己的目录里：
@@ -718,9 +805,9 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 
 ---
 
-## 4. 数据模型
+### 4. 数据模型
 
-### 4.1 users（`user/model.py`）
+#### 4.1 users（`user/model.py`）
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -734,7 +821,7 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 | created_at | DateTime | |
 | last_login | DateTime | |
 
-### 4.2 plugins（`core/models.py`）
+#### 4.2 plugins（`core/models.py`）
 
 | 字段 | 说明 |
 |---|---|
@@ -748,7 +835,7 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 | enabled / status / last_error | 启停、状态（loaded/disabled/error/blocked）、错误 |
 | installed_at | 安装时间 |
 
-### 4.3 其余表
+#### 4.3 其余表
 
 - `plugin_permissions`：`plugin_id + code`（短码）→ `full_code`、`label`
 - `plugin_uses_permissions`：`plugin_id + permission_code + reason`
@@ -757,7 +844,7 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 
 ---
 
-## 5. 一次请求的完整生命周期
+### 5. 一次请求的完整生命周期
 
 以浏览器访问 `/admin/plugins` 为例：
 
@@ -780,12 +867,12 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 
 ---
 
-## 6. 配置项完全手册
+### 6. 配置项完全手册
 
 `config.json` 全部字段都可以在「系统设置」页修改，也可以点「高级 JSON」写任意新字段。
 「需重启」= 保存后需要重启服务；「即时」= 保存立即生效。
 
-### app
+#### app
 
 | 键 | 类型 | 默认 | 生效 | 说明 |
 |---|---|---|---|---|
@@ -795,13 +882,13 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 | back_secret_key | secret | 自动生成 | 需重启 | 备用密钥 |
 | admin_url | path | / | 需重启 | 兼容字段，等同 kernel.home_url |
 
-### kernel（URL 前缀，均需重启）
+#### kernel（URL 前缀，均需重启）
 
 `home_url` / `auth_prefix` / `admin_prefix` / `system_prefix` / `static_prefix` /
 `plugin_static_prefix` / `plugin_fallback_prefix`，默认 `/`、`/auth`、`/admin`、`/system`、
 `/static`、`/plugin-static`、`/plugin`。
 
-### log
+#### log
 
 | 键 | 类型 | 默认 | 说明 |
 |---|---|---|---|
@@ -809,7 +896,7 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 | keep_days | int | 30 | 应用日志保留天数 |
 | access_keep_days | int | 30 | 访问日志保留天数 |
 
-### ui
+#### ui
 
 | 键 | 类型 | 默认 | 说明 |
 |---|---|---|---|
@@ -817,7 +904,7 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 | minimize_to_tray | bool | true | 关闭窗口是否最小化到托盘 |
 | refresh_ms | int | 2000 | 状态刷新间隔（毫秒） |
 
-### plugin
+#### plugin
 
 | 键 | 类型 | 默认 | 说明 |
 |---|---|---|---|
@@ -825,7 +912,7 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 | safe_mode | bool | false | 安全模式：跳过所有插件加载 |
 | path_overrides | dict | {} | 插件 URL 映射覆盖：`{"插件id": "/新路径"}`，由「URL 映射」页写入，重启后仍生效 |
 
-### service（保活与服务控制）
+#### service（保活与服务控制）
 
 | 键 | 类型 | 默认 | 说明 |
 |---|---|---|---|
@@ -837,7 +924,7 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 | web_control | bool | true | 允许 Web 控制台操作服务（即时） |
 | status_page | bool | true | 停止服务时在同端口提供引导页 |
 
-### user
+#### user
 
 | 键 | 类型 | 默认 | 说明 |
 |---|---|---|---|
@@ -845,7 +932,7 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 | password_min_length | int | 6 | 密码最小长度 |
 | default_permissions | list | [] | 新注册用户默认权限码 |
 
-### alert
+#### alert
 
 | 键 | 类型 | 默认 | 说明 |
 |---|---|---|---|
@@ -857,14 +944,14 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 
 ---
 
-## 7. 权限系统
+### 7. 权限系统
 
-### 7.1 权限码
+#### 7.1 权限码
 
 - 内核权限：`kernel.<模块>.<动作>`，如 `kernel.users.manage`。
 - 插件权限：`<author>.<group>.<name>.<短码>`，如 `yezhongtao.oa.notice.delete`。
 
-### 7.2 三层校验
+#### 7.2 三层校验
 
 | 层 | 位置 | 检查什么 |
 |---|---|---|
@@ -872,7 +959,7 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 | 使用声明 | `_ProviderProxy` | 调用方是否在 `uses_permissions` 里声明了该权限 |
 | 用户授权 | `@require_perm` / `@require_kernel_perm` | 当前用户是否拥有该权限码 |
 
-### 7.2.1 权限总览页（`/admin/permissions`）
+#### 7.2.1 权限总览页（`/admin/permissions`）
 
 按「内核权限 / 各插件权限」分组列出全部权限点。每行只显示：
 
@@ -902,7 +989,7 @@ tools/packager/runtime/Scripts/pythonw.exe tools/packager/app/main.py
 （code / label / group / kind / holders）与 `superadmins` 列表；
 前端脚本是 `static/js/pages/permissions.js`。
 
-### 7.3 装饰器用法
+#### 7.3 装饰器用法
 
 ```python
 # 插件内（短码，自动拼 full_id）
@@ -924,12 +1011,12 @@ def delete(rid): ...
 
 ---
 
-## 8. 插件开发指南
+### 8. 插件开发指南
 
 > 本章是**速查**；完整的教学版（接入步骤、内核账号、权限、导航、跨插件调用、
 > 独立门户、完整示例代码）见根目录 `插件开发教程.md`，建议先读那份。
 
-### 8.1 目录
+#### 8.1 目录
 
 ```
 plugins/yezhongtao.oa.notice/
@@ -947,7 +1034,7 @@ Werkzeug / Jinja2 / PySide6 / PyInstaller——**没有 requests**，内核代�
 且 `libs/` 里不允许出现内核已有的库（`_check_libs` 会拒绝）。
 本仓库的两个内置插件（ERP 只读中心、文件预览）都**只用标准库**，所以不占 `libs/`。
 
-### 8.2 plugin.json
+#### 8.2 plugin.json
 
 ```json
 {
@@ -970,7 +1057,7 @@ Werkzeug / Jinja2 / PySide6 / PyInstaller——**没有 requests**，内核代�
 }
 ```
 
-### 8.3 hooks.py
+#### 8.3 hooks.py
 
 ```python
 from flask import Blueprint, render_template
@@ -998,7 +1085,7 @@ def register(ctx):
 
 规则：蓝图名必须等于 full_id；第三方库在文件顶部 import；不 import 其他插件（用 `ctx.require`）。
 
-### 8.4 安装流程
+#### 8.4 安装流程
 
 ```
 上传 zip → staging/<task_id>/ 解压（防路径穿越）→ 读 plugin.json
@@ -1007,14 +1094,94 @@ def register(ctx):
 → 守护进程检测 flag → 杀 app → 重启 → 前端轮询 /system/health?task_id= 确认完成
 ```
 
-### 8.5 打包
+#### 8.5 打包
 
 ```
 python tools/pack_plugin.py plugins/yezhongtao.oa.notice
 # → dist/yezhongtao.oa.notice.zip
 ```
 
-### 8.7 内置示例：yezhongtao.tools.preview（文件预览插件）
+#### 8.6 内置示例：yezhongtao.erp.bridge（ERP 只读插件）
+
+把 `ERP/` 目录里 5 个脚本（erp1 / erp2 / erp3 / erp4 / 财务小工具）的 ERP 能力整理成插件：
+
+| 来源 | 能力 |
+|---|---|
+| erp1.py | 单号 → 帆软「混油发货单」PDF |
+| erp2.py / erp3.py | 单号 → 客户/终端/面积/件数/打包状态/包数；打印中心地址 |
+| erp4.py | 「所有订单」→ ERP 自己导出合同信息 Excel |
+| 财务小工具.py | 计件工资各环节、已发货（出库时间）、板材面积、业务提成 |
+
+**只读保证**：`erpbridge_core.check_readonly()` 硬保护 —— 只有 GET、登录 POST
+（`index.php?r=login/loginUcenter`）、以及 ERP 页面自己用的查询/导出白名单
+（`groupPackageCount` / `getAllOids` / `report/prepare` / `exportOrderGroup`）能发出；
+其余写操作直接抛 `ReadOnlyBlocked`，请求不会发出去。完整清单见「ERP 接口 → 只读审计」，
+接口是 `GET /erp/api/v1/audit`。插件不写任何 ERP 数据。
+
+> 参考用的 `ERP/` 目录已经删除：插件是独立实现（纯标准库），不依赖也不需要那个目录。
+
+**入口**：插件用 `ctx.register_menus()` 在侧栏注册了 7 项（ERP 中心 / 单号查询 / 单号缓存 /
+账号 / 文件管理 / 设置 / 接口）；也可以从 `插件管理 → 打开管理页` 进入 `/erp/`。
+插件页顶部还有一排自己的标签导航，右上角「插件管理」返回。
+**停用/卸载插件时，内核会自动清掉它的菜单**（不会残留在侧栏）。
+
+**页面（登录 + 插件权限）**
+
+| 页面 | 路径 | 说明 |
+|---|---|---|
+| ERP 中心 | `/erp/` | 连接/调度状态、最近抓到的单号、运行记录、只读清单 |
+| 单号查询 | `/erp/query` | 单号 → 信息 + 打印链接 + PDF + 合同导出 |
+| 单号缓存 | `/erp/cache` | 缓存里所有单号（可搜索 / 查看 / 单条删除 / 清空） |
+| 账号 | `/erp/accounts` | 多账号，每个账号自己的抓取频率（分钟）与单号列表 |
+| 文件管理 | `/erp/files` | 导出文件与 PDF 列表，可反复下载、删除、清空 |
+| 设置 | `/erp/settings` | 全量设置 + 令牌 + 测试登录 + 只读审计 |
+| 接口 | `/erp/api-docs` | HTTP API / 内部接口 / 令牌 / 示例 |
+
+**下载鉴权（一次性令牌）**：文件列表每点一次「下载」→ 服务端签发一次性令牌
+（默认 300 秒、用过即删）→ 302 跳到 `/erp/dl/<令牌>` 送文件。
+下载链接里不出现真实文件路径；过期或复用返回 410 和友好提示。
+外部软件用 `GET /erp/api/v1/files/<kind>/<name>/token` 拿链接。
+「设置 → 文件下载」可改令牌有效期。
+
+**给其它软件的 HTTP API**（令牌：`X-ERP-Token` 或 `?token=`）
+
+`GET /erp/api/v1/status`、`GET|POST /erp/api/v1/settings`、`GET|POST /erp/api/v1/accounts`、
+`DELETE /erp/api/v1/accounts/<id>`、`POST /erp/api/v1/accounts/<id>/sync`、
+`GET /erp/api/v1/orders/<code>`、`GET|DELETE /erp/api/v1/cache[/<code>]`、
+`GET /erp/api/v1/files`、`GET /erp/api/v1/files/<kind>/<name>/token`、
+`DELETE /erp/api/v1/files/<kind>/<name>`、
+`GET /erp/api/v1/print-url/<code>`、`GET /erp/api/v1/pdf/<code>`、
+`POST /erp/api/v1/export`、`POST /erp/api/v1/sync`、`POST /erp/api/v1/login-test`、
+`GET /erp/api/v1/audit`、`GET /erp/api/v1/openapi.json`
+
+所以外部软件改「抓取频率」只要：
+
+```
+POST /erp/api/v1/settings
+X-ERP-Token: <令牌>
+{"throttle": {"request_interval": 0.5}}
+```
+
+**给其它插件的内部接口**：`ctx.require("erp.api")`，18 个方法（status / get_settings /
+update_settings / test_login / query_order / print_url / fetch_pdf / export_contracts /
+fetch_wage / fetch_deliveries / fetch_panels / commission / sync_now / list_accounts /
+upsert_account / delete_account / readonly_audit …）。调用方要在自己 `plugin.json` 里声明
+`dependencies` 与 `uses_permissions`（`yezhongtao.erp.bridge.query` 等），
+否则内核的接口代理会抛 `PermissionError`。
+
+**设置项**：`connection`（地址/账号/密码/超时）、`throttle`（**抓取频率**、缓存、分页上限）、
+`report`（模板与报表主机）、`export`（导出路由与参数）、`wage`（环节开关/状态/日期格式）、
+`accounts`（账号 + `interval_minutes` + `codes`）、`scheduler`（自动抓取/检查间隔/日志保留）、
+`api`（令牌/远程开关）、`files`（一次性下载令牌有效期）、`safety`（默认关闭"改 ERP 账号偏好"）。
+
+**账号抓取**：`erpbridge_scheduler` 后台线程每 `tick_seconds` 秒检查，按每个账号的
+`interval_minutes` 到期就登录该账号、抓它 `codes` 里的单号，结果写入 `data/orders.json`
+（「单号缓存」页展示），并更新账号的 `last_sync/last_status/last_error`；`0` 表示只手动触发。
+
+**未纳入**：原「财务小工具」里写 Excel 的功能（订单管理/销售报表/板材列）需要 `openpyxl`，
+当前环境没有装，插件只保留"抓数据"这一半；装上 openpyxl 后可以按同样方式补 `write_*` 接口。
+
+#### 8.7 内置示例：yezhongtao.tools.preview（文件预览插件）
 
 把原来 ERP 插件里的「在线代码预览」拆出来做成了通用文件预览插件（独立实现，不是复制）：
 
@@ -1044,9 +1211,9 @@ python tools/pack_plugin.py plugins/yezhongtao.oa.notice
 
 ---
 
-## 9. 服务控制与守护进程
+### 9. 服务控制与守护进程
 
-### 9.1 三条文件通道
+#### 9.1 三条文件通道
 
 | 文件 | 写入者 | 读取者 | 内容 |
 |---|---|---|---|
@@ -1054,7 +1221,7 @@ python tools/pack_plugin.py plugins/yezhongtao.oa.notice
 | `data/control.json` | Web/桌面/引导页 | 守护 | `{action, task_id, requested_by, time}`，消费即删 |
 | `restart.flag` | admin 插件操作 | 守护 + app | 冷启动重启标志 |
 
-### 9.2 状态机
+#### 9.2 状态机
 
 ```
 starting ──启动成功──► running
@@ -1069,7 +1236,7 @@ starting ──启动成功──► running
               收到 start/restart
 ```
 
-### 9.3 Web 控制台能做什么
+#### 9.3 Web 控制台能做什么
 
 | 操作 | 行为 |
 |---|---|
@@ -1081,7 +1248,7 @@ starting ──启动成功──► running
 
 独立运行（`--web`，无守护）时：停止可用，启动/重启会返回明确提示（409）。
 
-### 9.4 安全模式
+#### 9.4 安全模式
 
 触发：`watch_window` 秒内 app 失败次数 ≥ `watch_threshold`。
 动作：写 `safe_mode.json`、`plugin.safe_mode=true`、推送 webhook 告警。
@@ -1089,9 +1256,9 @@ starting ──启动成功──► running
 
 ---
 
-## 10. 启动与排障指南
+### 10. 启动与排障指南
 
-### 10.1 本机"网页打不开"的两个真实原因
+#### 10.1 本机"网页打不开"的两个真实原因
 
 **原因 1：端口 80 被上次运行遗留的进程占用。**
 
@@ -1120,7 +1287,7 @@ starting ──启动成功──► running
 > 因为运行在更高权限下，普通权限结束不掉。现在配置已改用 8080，不影响使用；
 > 想把 80 端口收回来，用管理员身份打开任务管理器结束这两个 PID 即可。
 
-### 10.2 排障顺序（以后遇到问题照着做）
+#### 10.2 排障顺序（以后遇到问题照着做）
 
 1. 看 `data/logs/app.log`（应用与守护日志）。
 2. 看 `data/logs/console.log`（Flask 自己的 stdout/stderr）。
@@ -1130,7 +1297,7 @@ starting ──启动成功──► running
 6. 服务控制台点"重启服务"；不行就用 `python main.py --force`。
 7. 插件反复崩溃 → 安全模式 → 停用插件。
 
-### 10.3 常用命令
+#### 10.3 常用命令
 
 ```bash
 python main.py                  # 守护 + Flask + 桌面面板
@@ -1143,9 +1310,9 @@ python tools/pack_plugin.py plugins/<id>
 
 ---
 
-## 11. 前端说明
+### 11. 前端说明
 
-### 11.1 页面与路由
+#### 11.1 页面与路由
 
 | 页面 | 地址 | 权限 |
 |---|---|---|
@@ -1162,7 +1329,7 @@ python tools/pack_plugin.py plugins/<id>
 | 健康检查 | `/system/health` | 公开 |
 | 插件静态资源 | `/plugin-static/<full_id>/<file>` | 公开 |
 
-### 11.2 CSS 分层
+#### 11.2 CSS 分层
 
 | 文件 | 内容 |
 |---|---|
@@ -1195,7 +1362,7 @@ python tools/pack_plugin.py plugins/<id>
 **路径展示**：所有页面（含插件页）显示的路径都走相对路径；
 内核提供 Jinja 全局 `rel_path()` 与过滤器 `mask_paths`（日志文本里的绝对路径自动脱敏）。
 
-### 11.3 JS：`window.App`
+#### 11.3 JS：`window.App`
 
 | 成员 | 说明 |
 |---|---|
@@ -1216,9 +1383,9 @@ python tools/pack_plugin.py plugins/<id>
 
 ---
 
-## 12. 常见开发任务
+### 12. 常见开发任务
 
-### 12.1 新增一个内核管理页
+#### 12.1 新增一个内核管理页
 
 1. 在 `core/admin_*.py` 里加视图，挂到某个蓝图（三个蓝图的 url_prefix 都是 `admin_prefix`）：
    ```python
@@ -1232,30 +1399,30 @@ python tools/pack_plugin.py plugins/<id>
 4. 需要新权限码：在 `core/permission.py` 的 `KERNEL_PERMS` 里加一行。
 5. 需要新图标：在 `templates/partials/sprite.html` 加一个 `<symbol id="i-xxx">`。
 
-### 12.2 新增一个配置项
+#### 12.2 新增一个配置项
 
 1. `core/config.py` 的 `DEFAULT_CONFIG` 加默认值。
 2. `core/config_schema.py` 的对应分组加字段（label/type/help/restart 或 hot）。
 3. 设置页会自动渲染；保存时自动校验并写回。
 4. 代码里用 `get_config()["分组"]["键"]` 或 `set_config_path("分组.键", 值)`。
 
-### 12.3 新增一个接口
+#### 12.3 新增一个接口
 
 返回 JSON 用 `jsonify({"ok": True, ...})`，失败用 `{"ok": False, "error": "..."}` + 4xx；
 前端用 `App.api(url, {method:'POST', body:{...}})`，错误会自动 toast。
 
-### 12.4 让某个开关立即生效
+#### 12.4 让某个开关立即生效
 
 在 schema 里加 `"hot": True`；读取方每次都 `load_config()` 或 `get_config(reload=True)`。
 守护进程每 2 秒重读一次配置，所以 service 段的开关天然热更新。
 
-### 12.5 加一个插件菜单
+#### 12.5 加一个插件菜单
 
 `ctx.register_menus([{...}])`，`perm` 填短码；侧栏会自动按权限过滤、按 `order` 排序。
 
 ---
 
-## 13. 术语表
+### 13. 术语表
 
 | 术语 | 含义 |
 |---|---|
