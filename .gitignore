@@ -24,7 +24,6 @@ env/
 /data/
 /config.json
 /staging/
-/plugins/
 
 # ==============================
 # 工具运行时（体积大，不进仓库）
@@ -45,3 +44,4 @@ env/
 # 插件运行时数据（不进仓库）
 # ==============================
 /plugins/*/data/
+/plugins/yezhongtao.erp.bridge/

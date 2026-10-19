@@ -109,6 +109,34 @@ class _ProviderProxy:
 
 
 # --------------------------------------------------------------------------- #
+# 菜单地址工具：把"写死的 URL"变成"可随前缀变化的地址"
+# --------------------------------------------------------------------------- #
+def _menu_endpoint(plugin_id: str, raw) -> str | None:
+    """把 {"endpoint": "query_page"} 规范成完整 endpoint 名。"""
+    text = str(raw or "").strip().lstrip(".")
+    if not text:
+        return None
+    return text if "." in text else f"{plugin_id}.{text}"
+
+
+def _normalize_menu_url(url, prefixes) -> str:
+    """把 URL 里属于插件前缀的部分换成 `{prefix}` 占位符。"""
+    text = str(url or "").strip()
+    if not text:
+        return ""
+    candidates = sorted({str(item).rstrip("/") for item in prefixes if item},
+                        key=len, reverse=True)
+    for prefix in candidates:
+        if not prefix:
+            continue
+        if text == prefix:
+            return "{prefix}"
+        if text.startswith(prefix + "/"):
+            return "{prefix}" + text[len(prefix):]
+    return text
+
+
+# --------------------------------------------------------------------------- #
 # PluginManager
 # --------------------------------------------------------------------------- #
 class PluginManager:
@@ -444,7 +472,19 @@ class PluginManager:
         return f"{fallback}/{p.id}"
 
     # ===================== 菜单 =====================
-    def _register_menus(self, plugin_id: str, menus: list) -> None:
+    def _register_menus(self, plugin_id: str, menus: list, prefix: str = "") -> None:
+        """写菜单表。
+
+        两种写法：
+          · {"endpoint": "query_page"} —— 推荐。存接口名，渲染时用 url_for 现算地址，
+            改了 URL 映射后菜单自动跟着变，插件不用关心前缀。
+          · {"url": "/xxx/yyy"} —— 兼容写法。会把前缀部分替换成 `{prefix}` 占位符，
+            渲染时再填当前实际前缀，所以旧插件也不会因为改映射而 404。
+        """
+        plugin = db.session.get(Plugin, plugin_id)
+        declared = ((plugin.url_prefix or "").strip() if plugin else "")
+        prefixes = [item.rstrip("/") for item in (prefix, declared) if item]
+
         for item in menus:
             if not isinstance(item, dict):
                 continue
@@ -458,7 +498,8 @@ class PluginManager:
 
             row.plugin_id = plugin_id
             row.label = item.get("label", raw_name)
-            row.url = item.get("url", "")
+            row.endpoint = _menu_endpoint(plugin_id, item.get("endpoint"))
+            row.url = _normalize_menu_url(item.get("url"), prefixes)
             row.parent_id = item.get("parent_id")
             row.perm = item.get("perm")
             row.order = int(item.get("order", 0) or 0)

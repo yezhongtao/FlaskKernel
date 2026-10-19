@@ -68,10 +68,10 @@ def register(ctx) -> None:
     ctx.register_blueprint(views.bp)
     prefix = ctx.url_prefix
     ctx.register_menus([
-        {"name": "preview-home", "label": "文件预览", "url": f"{prefix}/",
-         "perm": "view", "order": 40, "icon": "eye"},
-        {"name": "preview-settings", "label": "预览设置", "url": f"{prefix}/settings",
-         "perm": "settings", "order": 41, "icon": "gear"},
+        {"name": "preview-home", "label": "文件预览", "endpoint": "page",
+         "url": f"{prefix}/", "perm": "view", "order": 40, "icon": "eye"},
+        {"name": "preview-settings", "label": "预览设置", "endpoint": "settings_page",
+         "url": f"{prefix}/settings", "perm": "settings", "order": 41, "icon": "gear"},
     ])
     ctx.provide("preview.api", api)
     log.info("文件预览插件就绪：允许目录 %s，根目录（项目相对）%s",

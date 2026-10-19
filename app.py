@@ -14,10 +14,10 @@ from core.auth import auth_bp, ensure_default_admin, login_manager
 from core.config import (DB_FILE, KERNEL_VERSION, LAST_RESTART_FILE, LOGS_DIR,
                          RESTART_FLAG, STATIC_DIR, TEMPLATES_DIR, KernelURLs,
                          load_config)
-from core.db import db
+from core.db import db, migrate_schema
 from core.log import get_logger, setup_logging
 from core.paths import mask_paths, rel_path
-from core.models import Menu, Route
+from core.models import Menu, Plugin, Route
 from core.permission import (KERNEL_PERM_LOGS, KERNEL_PERM_PLUGINS,
                              KERNEL_PERM_ROUTES, KERNEL_PERM_SERVICE,
                              KERNEL_PERM_SETTINGS, KERNEL_PERM_USERS,
@@ -119,21 +119,55 @@ def _nav_items() -> list[dict]:
         })
 
     plugin_menus = Menu.query.order_by(Menu.order, Menu.label).all()
+    prefixes: dict[str, str] = {}
+
+    def _plugin_prefix(plugin_id: str) -> str:
+        if plugin_id in prefixes:
+            return prefixes[plugin_id]
+        row = db.session.get(Plugin, plugin_id)
+        value = ""
+        if row is not None:
+            value = (row.actual_url_prefix or row.url_prefix or "")
+        prefixes[plugin_id] = value
+        return value
+
     for menu in plugin_menus:
         plugin = getattr(menu, "plugin_id", None)
         perm_code = f"{plugin}.{menu.perm}" if (plugin and menu.perm) else None
         if perm_code and not user_has_kernel_perm(current_user, perm_code):
             continue
-        if not menu.url:
+
+        # 菜单地址：优先用接口名现算（改 URL 映射自动跟随），
+        # 其次用注册时归一化的 url（{prefix} 占位符），最后兜底旧数据里的写死地址
+        url = ""
+        if getattr(menu, "endpoint", None):
+            try:
+                url = url_for(menu.endpoint)
+            except Exception:  # noqa: BLE001 - 插件被停用/改名时退回 url
+                url = ""
+        if not url:
+            url = menu.url or ""
+            if "{prefix}" in url:
+                prefix = _plugin_prefix(plugin).rstrip("/") if plugin else ""
+                if prefix:
+                    url = url.replace("{prefix}", prefix)
+            elif plugin:
+                row = db.session.get(Plugin, plugin)
+                declared = ((row.url_prefix or "").rstrip("/") if row else "")
+                actual = ((row.actual_url_prefix or "").rstrip("/") if row else "")
+                if declared and actual and declared != actual and \
+                        (url == declared or url.startswith(declared + "/")):
+                    url = actual + url[len(declared):]
+        if not url:
             continue
-        group = "插件"
+
         items.append({
-            "group": group,
+            "group": "插件",
             "label": menu.label or menu.name,
-            "url": menu.url,
+            "url": url,
             "icon": menu.icon or "plugin",
-            "active": request.path == menu.url or
-                      (menu.url != "/" and request.path.startswith(menu.url)),
+            "active": request.path == url or
+                      (url != "/" and request.path.startswith(url)),
         })
     return items
 
@@ -291,6 +325,7 @@ def create_app(config: dict | None = None) -> Flask:
 
     with app.app_context():
         db.create_all()
+        migrate_schema()          # 老数据库补 menus.endpoint 字段
         ensure_default_admin()
         _register_kernel_routes_to_table(kernel_urls)
 

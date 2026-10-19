@@ -93,6 +93,9 @@ class Menu(db.Model):
     name = db.Column(db.String(200), unique=True, nullable=False)
     label = db.Column(db.String(128), default="")
     url = db.Column(db.String(255), default="")
+    # 菜单指向的接口名（完整 endpoint，例如 yezhongtao.erp.bridge.query_page）。
+    # 有 endpoint 时渲染阶段用 url_for 现算地址，URL 前缀改了菜单也不会失效。
+    endpoint = db.Column(db.String(200), nullable=True)
     parent_id = db.Column(db.Integer, nullable=True)
     perm = db.Column(db.String(128), nullable=True)
     order = db.Column(db.Integer, default=0)

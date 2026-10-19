@@ -71,7 +71,31 @@ class PluginContext:
         self._manager._on_blueprint_registered(self._id, bp)
 
     def register_menus(self, menus: list) -> None:
-        self._manager._register_menus(self._id, menus or [])
+        self._manager._register_menus(self._id, menus or [], prefix=self._url_prefix)
+
+    # ---------------- 生成地址（推荐插件统一用这两个） ----------------
+    def url_for(self, name: str, **values) -> str:
+        """生成插件自己的页面地址，前缀永远是"当前实际前缀"。
+
+        用法：
+            ctx.url_for("dashboard")      # → /erp-remap/   （改了 URL 映射也会变）
+            ctx.url_for("detail", pid=3)  # → /erp-remap/detail/3
+            ctx.url_for(".dashboard")     # 也支持带点写法
+        """
+        from flask import url_for as _flask_url_for
+
+        endpoint = name.lstrip(".")
+        if not endpoint.startswith(self._id + "."):
+            endpoint = f"{self._id}.{endpoint}"
+        return _flask_url_for(endpoint, **values)
+
+    def url(self, path: str = "") -> str:
+        """拼一个插件内的相对地址（不校验视图是否存在）。"""
+        base = self._url_prefix.rstrip("/")
+        suffix = str(path or "").strip()
+        if not suffix:
+            return base + "/"
+        return base + "/" + suffix.lstrip("/")
 
     def provide(self, key: str, obj) -> None:
         spec = self._provides_spec.get(key, {})
