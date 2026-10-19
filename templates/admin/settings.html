@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% from "partials/ui.html" import icon, badge %}
+{% block title %}系统设置 · {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>系统设置</h1>
+    <div class="desc">
+      这里覆盖 <code>config.json</code> 的全部配置：应用、内核 URL、日志、桌面面板、插件、
+      服务控制、用户、告警。标有「需重启」的字段保存后需要重启服务才生效。
+    </div>
+  </div>
+  <div class="page-head-actions">
+    <a class="btn btn-outline" href="{{ url_for('admin_service.service_page') }}">{{ icon('power') }} 服务控制台</a>
+    <a class="btn" href="{{ url_for('admin_service.logs_page') }}">{{ icon('list') }} 日志</a>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  {{ icon('info') }}
+  <div class="grow">
+    当前监听端口 <strong>{{ status.port or '-' }}</strong>，配置端口 <strong>{{ status.config_port }}</strong>。
+    改完端口保存并自动重启后，请用新端口访问（页面会给出新地址）。
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('admin_service.settings_page') }}" id="settingsForm">
+  {% for group in schema %}
+  {% set section = group.section %}
+  <section class="card settings-section">
+    <div class="card-head">
+      <div>
+        <h2>{{ icon('gear') }} {{ group.title }}</h2>
+        <div class="sub">{{ group.desc }}</div>
+      </div>
+      <span class="section-tag">{{ section }}</span>
+    </div>
+    <div class="card-body">
+      {% for field in group.fields %}
+        {% set path = section ~ '.' ~ field.key %}
+        {% set value = values.get(path, '') %}
+        <div class="setting-row">
+          <div>
+            <div class="s-label">
+              {{ field.label }}
+              {% if field.restart %}<span class="s-flag">需重启</span>{% endif %}
+              {% if field.hot %}<span class="badge badge-success" style="font-size:10px">即时生效</span>{% endif %}
+            </div>
+            {% if field.help %}<div class="s-help">{{ field.help }}</div>{% endif %}
+            <div class="s-help mono tiny">{{ path }}</div>
+          </div>
+          <div class="s-control">
+            {% if field.type == 'bool' %}
+              <input type="hidden" name="__bool__{{ path }}" value="1">
+              <label class="switch">
+                <input type="checkbox" name="{{ path }}" {% if value == '1' %}checked{% endif %}>
+                <span class="track"></span>
+                <span class="switch-label">{{ '已开启' if value == '1' else '已关闭' }}</span>
+              </label>
+
+            {% elif field.type == 'select' %}
+              <select class="select" name="{{ path }}" style="max-width:260px">
+                {% for option in field.options %}
+                  <option value="{{ option }}" {% if value == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+
+            {% elif field.type == 'int' %}
+              <input class="input" type="number" name="{{ path }}" value="{{ value }}"
+                     {% if field.min is not none %}min="{{ field.min }}"{% endif %}
+                     {% if field.max is not none %}max="{{ field.max }}"{% endif %}
+                     style="max-width:220px">
+
+            {% elif field.type == 'json' %}
+              <textarea class="textarea mono" name="{{ path }}">{{ value }}</textarea>
+
+            {% elif field.type == 'secret' %}
+              <div class="input-group" style="max-width:520px">
+                <input class="input" type="password" name="{{ path }}" value="{{ value }}"
+                       autocomplete="off" spellcheck="false">
+                <button class="btn btn-outline" type="button" data-reveal>显示</button>
+              </div>
+
+            {% elif field.type == 'list' %}
+              <input class="input" type="text" name="{{ path }}" value="{{ value }}"
+                     placeholder="逗号分隔" style="max-width:520px">
+
+            {% else %}
+              <input class="input" type="text" name="{{ path }}" value="{{ value }}"
+                     {% if field.type == 'path' %}placeholder="/xxx"{% endif %}
+                     style="max-width:520px">
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+
+  <div class="restart-bar">
+    <div class="hint">
+      保存后若包含「需重启」字段，会自动请求守护进程重启服务；独立运行模式下需手动重启。
+    </div>
+    <label class="check" style="margin:0">
+      <input type="checkbox" name="auto_restart" checked>
+      <span>保存后自动重启</span>
+    </label>
+    <button class="btn btn-primary" type="submit" id="saveSettings">
+      {{ icon('save') }} 保存配置
+    </button>
+  </div>
+</form>
+
+<section class="card settings-section">
+  <div class="card-head">
+    <div>
+      <h2>{{ icon('key') }} 高级：直接编辑 JSON</h2>
+      <div class="sub">
+        提交的内容会与 config.json 深合并，可以写入上表没列出的任意字段。
+        支持形如 <code>{"app": {"port": 8080}}</code> 的片段。
+      </div>
+    </div>
+    <span class="section-tag">advanced</span>
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin_service.settings_advanced') }}" id="advancedForm">
+      <textarea class="textarea mono" name="json" id="advancedJson" rows="14"
+                spellcheck="false">{{ raw_json }}</textarea>
+      <div class="row-between mt-2">
+        <span class="small muted">保存后同样需要重启才会生效（端口类字段）。</span>
+        <button class="btn btn-outline" type="submit">{{ icon('save') }} 写入 JSON</button>
+      </div>
+    </form>
+
+    <hr>
+
+    <div class="row-wrap">
+      <form method="post" action="{{ url_for('admin_service.regenerate_secret') }}">
+        <input type="hidden" name="which" value="app.secret_key">
+        <button class="btn btn-danger btn-sm" type="submit">{{ icon('refresh') }} 重置 Flask 密钥</button>
+      </form>
+      <form method="post" action="{{ url_for('admin_service.regenerate_secret') }}">
+        <input type="hidden" name="which" value="app.back_secret_key">
+        <button class="btn btn-danger btn-sm" type="submit">{{ icon('refresh') }} 重置备用密钥</button>
+      </form>
+    </div>
+    <p class="small muted mt-2 mb-0">
+      重置密钥后所有登录会话失效，需要重新登录。
+    </p>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/settings.js') }}"></script>
+{% endblock %}

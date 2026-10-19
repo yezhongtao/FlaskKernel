@@ -1,0 +1,31 @@
+{# 通用 UI 宏：图标 / 徽章 / 空状态 #}
+{% macro icon(name, cls='') -%}
+<svg class="i {{ cls }}" aria-hidden="true" focusable="false"><use href="#i-{{ name or 'dot' }}" xlink:href="#i-{{ name or 'dot' }}"></use></svg>
+{%- endmacro %}
+
+{% macro badge(text, kind='info') -%}
+<span class="badge badge-{{ kind }}">{{ text }}</span>
+{%- endmacro %}
+
+{% macro status_badge(status) -%}
+{% set map = {'loaded': ('success', '已加载'), 'disabled': ('disabled', '已停用'),
+              'error': ('danger', '错误'), 'blocked': ('warning', '被阻塞')} %}
+{% set item = map.get(status, ('outline', status)) %}
+<span class="badge badge-{{ item[0] }}">{{ item[1] }}</span>
+{%- endmacro %}
+
+{% macro empty(title, desc='', icon_name='list') -%}
+<div class="empty">
+  <div class="empty-ico">{{ icon(icon_name, 'i-lg') }}</div>
+  <h3>{{ title }}</h3>
+  {% if desc %}<p>{{ desc }}</p>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro switch(name, checked, label='', help='') -%}
+<label class="switch">
+  <input type="checkbox" name="{{ name }}" {% if checked %}checked{% endif %}>
+  <span class="track"></span>
+  {% if label %}<span class="switch-label">{{ label }}{% if help %}<small>{{ help }}</small>{% endif %}</span>{% endif %}
+</label>
+{%- endmacro %}

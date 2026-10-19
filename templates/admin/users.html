@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% from "partials/ui.html" import icon, badge, empty %}
+{% block title %}用户管理 · {{ app_name }}{% endblock %}
+
+{% macro perm_checkboxes(prefix) %}
+<div class="perm-groups" data-perm-scope="{{ prefix }}">
+  {% for group in catalog %}
+  <div class="perm-group">
+    <div class="perm-group-head">
+      <span>{{ group.title }}</span>
+      <button class="btn btn-xs btn-ghost" type="button" data-perm-toggle-group>
+        {{ group['items']|length }} 项 · 全选
+      </button>
+    </div>
+    <div class="perm-list">
+      {% for item in group['items'] %}
+      <label class="perm-item check" style="cursor:pointer">
+        <input type="checkbox" name="permissions" value="{{ item.code }}">
+        <span class="grow">
+          {{ item.label }}
+          <span class="code" style="display:block">{{ item.code }}</span>
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  {% if not catalog %}
+    <p class="muted small">暂无可分配的权限点</p>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>用户管理</h1>
+    <div class="desc">新建账号、分配权限、重置密码。超级管理员默认拥有全部权限。</div>
+  </div>
+  <div class="page-head-actions">
+    <button class="btn btn-primary" type="button" id="btnNewUser">{{ icon('plus') }} 新建用户</button>
+    <a class="btn btn-outline" href="{{ url_for('admin_users.permissions_page') }}">{{ icon('key') }} 权限总览</a>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="stat-ico">{{ icon('users', 'i-lg') }}</div>
+    <div><div class="stat-val">{{ stats.total }}</div><div class="stat-label">用户总数</div></div>
+  </div>
+  <div class="stat">
+    <div class="stat-ico ok">{{ icon('check', 'i-lg') }}</div>
+    <div><div class="stat-val">{{ stats.active }}</div><div class="stat-label">启用中</div></div>
+  </div>
+  <div class="stat">
+    <div class="stat-ico warn">{{ icon('shield', 'i-lg') }}</div>
+    <div><div class="stat-val">{{ stats.admins }}</div><div class="stat-label">超级管理员</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-toolbar">
+    <div class="search">
+      {{ icon('search', 'i-sm') }}
+      <input class="input" type="search" id="userSearch" placeholder="搜索用户名…" autocomplete="off">
+    </div>
+    <span class="grow"></span>
+    <span class="small muted">{{ users|length }} 个账号</span>
+  </div>
+
+  {% if users %}
+  <div class="table-wrap">
+    <table class="data responsive" id="userTable">
+      <thead>
+        <tr>
+          <th>用户</th>
+          <th>状态</th>
+          <th>身份</th>
+          <th>权限</th>
+          <th>最后登录</th>
+          <th class="right">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr data-id="{{ u.id }}"
+            data-username="{{ u.username }}"
+            data-superadmin="{{ '1' if u.is_superadmin else '0' }}"
+            data-active="{{ '1' if u.active else '0' }}"
+            data-perms='{{ (u.permissions or [])|tojson }}'>
+          <td data-label="用户">
+            <div class="user-cell">
+              <span class="avatar">{{ u.username[:1] }}</span>
+              <div class="meta">
+                <div class="n">{{ u.username }}{% if u.id == current_user_id %} <span class="tiny muted">（我）</span>{% endif %}</div>
+                <div class="s">创建于 {{ u.created_at|dt }}</div>
+              </div>
+            </div>
+          </td>
+          <td data-label="状态">
+            {% if u.active %}{{ badge('启用', 'success') }}{% else %}{{ badge('停用', 'disabled') }}{% endif %}
+          </td>
+          <td data-label="身份">
+            {% if u.is_superadmin %}{{ badge('超管', 'brand') }}{% else %}{{ badge('普通', 'outline') }}{% endif %}
+          </td>
+          <td data-label="权限">
+            {% if u.is_superadmin %}
+              <span class="badge badge-info">全部</span>
+            {% else %}
+              <span class="badge badge-outline">{{ (u.permissions or [])|length }} 项</span>
+            {% endif %}
+          </td>
+          <td data-label="最后登录"><span class="small">{{ u.last_login|dt }}</span></td>
+          <td data-label="操作" class="actions">
+            <button class="btn btn-sm" type="button" data-edit="{{ u.id }}">{{ icon('edit') }} 编辑</button>
+            {% if is_superadmin %}
+            <button class="btn btn-sm btn-ghost" type="button" data-reset="{{ u.id }}">{{ icon('lock') }} 改密</button>
+            {% endif %}
+            {% if is_superadmin and u.id != current_user_id %}
+            <button class="btn btn-sm btn-danger" type="button" data-delete="{{ u.id }}">{{ icon('trash') }}</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="empty hidden" id="userEmpty"></div>
+  {% else %}
+    {{ empty('还没有任何用户', '新建第一个账号吧', 'users') }}
+  {% endif %}
+</div>
+
+<!-- 新建用户 -->
+<div class="modal-backdrop" id="newUserModal">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h3>{{ icon('plus') }} 新建用户</h3>
+      <button class="icon-btn" type="button" data-close-modal="newUserModal">{{ icon('close') }}</button>
+    </div>
+    <form id="newUserForm">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="field">
+            <label for="newUsername">用户名</label>
+            <input class="input" id="newUsername" name="username" required
+                   placeholder="字母开头，3-32 位">
+          </div>
+          <div class="field">
+            <label for="newPassword">初始密码</label>
+            <input class="input" id="newPassword" name="password" type="password"
+                   required minlength="{{ password_min }}" placeholder="至少 {{ password_min }} 位">
+          </div>
+        </div>
+        <div class="row-wrap mt-2" style="gap:18px">
+          <label class="check">
+            <input type="checkbox" name="active" checked> <span>立即启用</span>
+          </label>
+          {% if is_superadmin %}
+          <label class="check">
+            <input type="checkbox" name="is_superadmin"> <span>设为超级管理员</span>
+          </label>
+          {% endif %}
+        </div>
+
+        <div class="mt-3">
+          <div class="row-between mb-2">
+            <span class="field-label">分配权限</span>
+            <span class="small muted">勾选后立即生效，无需重启</span>
+          </div>
+          {{ perm_checkboxes('new') }}
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" data-close-modal="newUserModal">取消</button>
+        <button class="btn btn-primary" type="submit" id="newUserSubmit">{{ icon('save') }} 创建</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 编辑用户 -->
+<div class="modal-backdrop" id="editUserModal">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h3>{{ icon('edit') }} 编辑用户 <span class="mono small muted" id="editUserLabel"></span></h3>
+      <button class="icon-btn" type="button" data-close-modal="editUserModal">{{ icon('close') }}</button>
+    </div>
+    <form id="editUserForm">
+      <input type="hidden" name="user_id" id="editUserId">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="field">
+            <label for="editUsername">用户名</label>
+            <input class="input" id="editUsername" name="username" required>
+          </div>
+          <div class="field">
+            <label>账号状态</label>
+            <label class="switch">
+              <input type="checkbox" name="active" id="editActive">
+              <span class="track"></span>
+              <span class="switch-label">启用该账号</span>
+            </label>
+          </div>
+        </div>
+        {% if is_superadmin %}
+        <label class="check mt-2">
+          <input type="checkbox" name="is_superadmin" id="editSuperadmin">
+          <span>超级管理员（拥有全部权限）</span>
+        </label>
+        {% endif %}
+        <div class="mt-3">
+          <div class="row-between mb-2">
+            <span class="field-label">分配权限</span>
+            <span class="small muted">超管账号的权限勾选会被忽略</span>
+          </div>
+          {{ perm_checkboxes('edit') }}
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" data-close-modal="editUserModal">取消</button>
+        <button class="btn btn-primary" type="submit" id="editUserSubmit">{{ icon('save') }} 保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 重置密码 -->
+<div class="modal-backdrop" id="resetModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>{{ icon('lock') }} 重置密码</h3>
+      <button class="icon-btn" type="button" data-close-modal="resetModal">{{ icon('close') }}</button>
+    </div>
+    <form id="resetForm">
+      <input type="hidden" name="user_id" id="resetUserId">
+      <div class="modal-body">
+        <p class="muted small">为 <strong id="resetUserName"></strong> 设置新密码，用户下次登录即生效。</p>
+        <div class="field">
+          <label for="resetPassword">新密码</label>
+          <input class="input" id="resetPassword" name="password" type="password"
+                 required minlength="{{ password_min }}" placeholder="至少 {{ password_min }} 位">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" data-close-modal="resetModal">取消</button>
+        <button class="btn btn-primary" type="submit" id="resetSubmit">{{ icon('save') }} 重置</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/users.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "auth/base.html" %}
+{% from "partials/ui.html" import icon %}
+{% block title %}注册 · {{ app_name }}{% endblock %}
+
+{% block content %}
+<h1>注册账号</h1>
+<p class="sub">创建后会自动登录，权限由管理员分配</p>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="alert alert-{{ 'warning' if category in ['warning','message'] else category }}" role="status">
+      {{ icon('info') }}<div class="grow">{{ message }}</div>
+    </div>
+  {% endfor %}
+{% endwith %}
+
+{% if not allow_register %}
+<div class="alert alert-warning" role="alert">
+  {{ icon('alert') }}
+  <div class="grow">
+    系统当前未开放自助注册。请让管理员在「系统设置 → 用户 → 开放自助注册」里打开，
+    或直接由管理员在「用户管理」中为你创建账号。
+  </div>
+</div>
+<a class="btn btn-outline btn-block" href="{{ url_for('auth.login') }}">返回登录</a>
+
+{% else %}
+<form method="post" action="{{ url_for('auth.register') }}" novalidate>
+  <div class="field">
+    <label for="username">用户名</label>
+    <input class="input" id="username" name="username" type="text"
+           value="{{ username or '' }}" autocomplete="username" autofocus required
+           placeholder="3-32 位，字母开头">
+    <span class="hint">可含字母、数字、下划线、点、短横线</span>
+  </div>
+  <div class="field">
+    <label for="password">密码</label>
+    <input class="input" id="password" name="password" type="password"
+           autocomplete="new-password" required placeholder="至少 {{ password_min }} 位">
+    <span class="hint">密码至少 {{ password_min }} 位</span>
+  </div>
+  <div class="field">
+    <label for="password2">确认密码</label>
+    <input class="input" id="password2" name="password2" type="password"
+           autocomplete="new-password" required placeholder="再输入一次">
+  </div>
+  <button class="btn btn-primary btn-lg btn-block" type="submit">
+    {{ icon('user') }} 注册并登录
+  </button>
+</form>
+
+<div class="auth-links">
+  <span class="muted">已有账号？</span>
+  <a href="{{ url_for('auth.login') }}">返回登录 {{ icon('chevron-right', 'i-sm') }}</a>
+</div>
+{% endif %}
+{% endblock %}

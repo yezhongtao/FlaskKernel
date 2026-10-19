@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% from "partials/ui.html" import icon %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('core.plugin_static', full_id='yezhongtao.tools.preview', filename='preview.css') }}">
+{% endblock %}
+{% block title %}文件预览 · {{ app_name }}{% endblock %}
+
+{% macro tree_nodes(nodes) %}
+  <ul class="pv-tree">
+  {% for node in nodes %}
+    <li>
+      {% if node.children %}
+      <details class="pv-branch" {% if current == node.rel or current.startswith(node.rel ~ '/') %}open{% endif %}>
+        <summary>
+          <span class="pv-dir">{{ icon('menu', 'i-sm') }} {{ node.name }}</span>
+        </summary>
+        {{ tree_nodes(node.children) }}
+      </details>
+      {% else %}
+      <a class="pv-leaf {{ 'on' if current == node.rel }}"
+         href="{{ url_for('.page', path=node.rel) }}">
+        {{ icon('menu', 'i-sm') }} {{ node.name }}
+      </a>
+      {% endif %}
+    </li>
+  {% endfor %}
+  </ul>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>文件预览</h1>
+    <div class="desc">
+      在线查看代码、表格、Word、图片、视频和音频。<strong>只读</strong>：不会修改任何文件。
+      允许范围：{% for root in roots %}<code>{{ root }}</code>{% if not loop.last %}、{% endif %}{% endfor %}
+    </div>
+  </div>
+  <div class="page-head-actions">
+    {% if can_kernel('yezhongtao.tools.preview.settings') or is_superadmin %}
+    <a class="btn btn-outline" href="{{ url_for('.settings_page') }}">{{ icon('gear') }} 设置</a>
+    {% endif %}
+  </div>
+</div>
+
+<nav class="pv-crumbs" aria-label="路径">
+  {% for crumb in crumbs %}
+    {% if loop.last %}
+      <span class="pv-crumb on">{{ crumb.name }}</span>
+    {% else %}
+      <a class="pv-crumb" href="{{ url_for('.page', path=crumb.rel) }}">{{ crumb.name }}</a>
+      <span class="pv-sep">/</span>
+    {% endif %}
+  {% endfor %}
+</nav>
+
+<div class="pv-layout">
+  <aside class="pv-side">
+    <div class="pv-side-head">
+      <span class="field-label">目录</span>
+      <a class="btn btn-ghost btn-xs" href="{{ url_for('.page') }}">根目录</a>
+    </div>
+    {% if tree %}
+      {{ tree_nodes(tree) }}
+    {% else %}
+      <p class="muted small">没有可显示的目录</p>
+    {% endif %}
+  </aside>
+
+  <section class="pv-main">
+    {% if is_dir %}
+      <div class="pv-list-head">
+        <div>
+          <h2>{{ current or '项目根目录' }}</h2>
+          <div class="small muted">{{ entries|length }} 项</div>
+        </div>
+        <input class="input pv-filter" id="pvFilter" type="search"
+               placeholder="过滤当前目录（输入名字）" autocomplete="off">
+      </div>
+
+      {% if entries %}
+      <div class="table-wrap">
+        <table class="data pv-table" id="pvList">
+          <thead>
+            <tr><th>名称</th><th>类型</th><th>大小</th><th>修改时间</th></tr>
+          </thead>
+          <tbody>
+          {% for entry in entries %}
+            <tr class="pv-row" data-name="{{ entry.name|lower }}">
+              <td data-label="名称">
+                {% if entry.dir %}
+                  <a class="pv-name" href="{{ url_for('.page', path=entry.rel) }}">
+                    <span class="pv-ico dir">{{ icon('menu', 'i-sm') }}</span>{{ entry.name }}
+                  </a>
+                {% else %}
+                  <a class="pv-name" href="{{ url_for('.page', path=entry.rel) }}">
+                    <span class="pv-ico">{{ icon('list', 'i-sm') }}</span>{{ entry.name }}
+                  </a>
+                {% endif %}
+              </td>
+              <td data-label="类型"><span class="small muted">{{ '目录' if entry.dir else entry.kind }}</span></td>
+              <td data-label="大小">{{ '—' if entry.dir else fmt_size(entry.size) }}</td>
+              <td data-label="修改时间" class="small muted">{{ entry.mtime }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="empty">
+          <div class="empty-ico">{{ icon('list', 'i-lg') }}</div>
+          <h3>这个目录是空的</h3>
+          <p>或者里面只有被隐藏的文件。</p>
+        </div>
+      {% endif %}
+
+    {% else %}
+      {% set file = preview %}
+      <div class="pv-file-head">
+        <div class="pv-file-title">
+          <h2 class="mono">{{ file.name }}</h2>
+          <div class="small muted">
+            {{ fmt_size(file.size) }} · {{ file.mtime }} · {{ file.kind }}
+            {% if file.mode == 'code' %} · {{ file.total_lines }} 行{% endif %}
+          </div>
+        </div>
+        <div class="row-wrap">
+          {% if file.ok and file.mode != 'none' %}
+          <button class="btn btn-sm" type="button" id="pvCopy">{{ icon('copy') }} 复制路径</button>
+          {% endif %}
+          {% if can_kernel('yezhongtao.tools.preview.download') or is_superadmin %}
+          <a class="btn btn-sm btn-outline"
+             href="{{ url_for('.download', rel=file.rel or current) }}">
+            {{ icon('download') }} 下载
+          </a>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if file.mode == 'code' %}
+        <div class="pv-code" data-path="{{ file.rel }}">
+          <ol class="pv-lines">
+            {% for line in file.lines %}
+            <li>{{ line|safe if line else '&nbsp;'|safe }}</li>
+            {% endfor %}
+          </ol>
+        </div>
+        {% if file.truncated %}
+          <div class="alert alert-warning">{{ icon('alert') }}
+            <div class="grow">文件较大，只预览了前 4000 行。</div></div>
+        {% endif %}
+
+      {% elif file.mode == 'table' %}
+        <div class="pv-table-meta">
+          {% if file.sheet %}<span>工作表：<code>{{ file.sheet }}</code></span>{% endif %}
+          <span>{{ file.total_rows }} 行{% if file.truncated %}（已截断）{% endif %}</span>
+        </div>
+        <div class="pv-sheet-wrap">
+          <table class="pv-sheet">
+            <thead>
+              <tr>{% for cell in file.table.head %}<th>{{ cell }}</th>{% endfor %}</tr>
+            </thead>
+            <tbody>
+            {% for row in file.table.rows %}
+              <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      {% elif file.mode == 'word' %}
+        <article class="pv-doc">{{ file.html|safe }}</article>
+
+      {% elif file.mode == 'image' %}
+        <div class="pv-media"><img src="{{ url_for('.raw', rel=file.rel) }}" alt="{{ file.name }}"></div>
+
+      {% elif file.mode == 'video' %}
+        <div class="pv-media">
+          <video controls preload="metadata" src="{{ url_for('.raw', rel=file.rel) }}"></video>
+        </div>
+
+      {% elif file.mode == 'audio' %}
+        <div class="pv-media pv-audio">
+          <div class="pv-audio-ico">{{ icon('play', 'i-lg') }}</div>
+          <audio controls preload="metadata" src="{{ url_for('.raw', rel=file.rel) }}"></audio>
+        </div>
+
+      {% elif file.mode == 'pdf' %}
+        <iframe class="pv-pdf" src="{{ url_for('.raw', rel=file.rel) }}" title="{{ file.name }}"></iframe>
+
+      {% else %}
+        <div class="empty">
+          <div class="empty-ico">{{ icon('info', 'i-lg') }}</div>
+          <h3>这个文件暂时不能在线预览</h3>
+          <p>{{ file.message or '未知类型。' }}</p>
+          {% if can_kernel('yezhongtao.tools.preview.download') or is_superadmin %}
+          <a class="btn btn-primary" href="{{ url_for('.download', rel=file.rel or current) }}">
+            {{ icon('download') }} 下载原文件
+          </a>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endif %}
+  </section>
+</div>
+<script src="{{ url_for('core.plugin_static', full_id='yezhongtao.tools.preview', filename='preview.js') }}"></script>
+{% endblock %}

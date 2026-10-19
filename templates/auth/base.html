@@ -1,0 +1,59 @@
+{% from "partials/ui.html" import icon %}
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1424">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/favicon-64.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
+</head>
+<body class="auth-page">
+{% include "partials/sprite.html" %}
+
+<section class="auth-brand">
+  <div class="auth-brand-inner">
+    <div class="auth-logo">
+      <span class="brand-mark brand-mark-word" aria-hidden="true">微</span>
+      <span>{{ app_name }}</span>
+    </div>
+    <h2>微内核，业务全插件化。</h2>
+    <p class="lead">
+      内核只做基础设施：登录、权限、插件、路由、日志与守护。
+      所有业务功能以插件形式安装、启停、升级，无需改动内核代码。
+    </p>
+
+    <div class="auth-points">
+      <div class="auth-point">
+        <span class="chip">{{ icon('plugin', 'i-sm') }}</span>
+        <div><strong>插件即业务</strong><span>上传 zip 即可安装，启用停用都不改内核</span></div>
+      </div>
+      <div class="auth-point">
+        <span class="chip">{{ icon('shield', 'i-sm') }}</span>
+        <div><strong>三层权限模型</strong><span>依赖声明 + 使用声明 + 用户授权</span></div>
+      </div>
+      <div class="auth-point">
+        <span class="chip">{{ icon('power', 'i-sm') }}</span>
+        <div><strong>守护与冷启动</strong><span>崩溃自动拉起，连续失败自动进安全模式</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="auth-foot">v{{ kernel_version }} · Flask 微内核</div>
+</section>
+
+<section class="auth-panel">
+  <div class="auth-card">
+    {% block content %}{% endblock %}
+  </div>
+</section>
+
+<div class="toast-stack" id="toastStack"></div>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

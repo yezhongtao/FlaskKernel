@@ -1,0 +1,52 @@
+{% extends "auth/base.html" %}
+{% from "partials/ui.html" import icon %}
+{% block title %}登录 · {{ app_name }}{% endblock %}
+
+{% block content %}
+<h1>欢迎回来</h1>
+<p class="sub">登录 {{ app_name }}，管理插件与内核服务</p>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="alert alert-{{ 'warning' if category in ['warning','message'] else category }}" role="status">
+      {{ icon('info') }}<div class="grow">{{ message }}</div>
+    </div>
+  {% endfor %}
+{% endwith %}
+
+{% if error %}
+<div class="alert alert-error" role="alert">
+  {{ icon('alert') }}<div class="grow">{{ error }}</div>
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('auth.login') }}" autocomplete="on" novalidate>
+  <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+  <div class="field">
+    <label for="username">用户名</label>
+    <input class="input" id="username" name="username" type="text"
+           value="{{ username }}" autocomplete="username" autofocus required
+           placeholder="请输入用户名">
+  </div>
+  <div class="field">
+    <label for="password">密码</label>
+    <input class="input" id="password" name="password" type="password"
+           autocomplete="current-password" required placeholder="请输入密码">
+  </div>
+  <label class="check">
+    <input type="checkbox" name="remember" checked>
+    <span>记住我（公共电脑请取消）</span>
+  </label>
+  <button class="btn btn-primary btn-lg btn-block" type="submit">
+    {{ icon('lock') }} 登 录
+  </button>
+</form>
+
+<div class="auth-links">
+  <span class="muted">忘记密码？请联系管理员重置</span>
+  {% if allow_register %}
+  <a href="{{ url_for('auth.register') }}">注册新账号 {{ icon('chevron-right', 'i-sm') }}</a>
+  {% endif %}
+</div>
+
+{% endblock %}

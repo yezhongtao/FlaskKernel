@@ -1,0 +1,49 @@
+{% from "partials/ui.html" import icon %}
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1424">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/favicon-64.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body data-health-url="{{ url_for('core.health') }}">
+{% include "partials/sprite.html" %}
+
+<div class="shell">
+  {% include "partials/sidebar.html" %}
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="main">
+    {% include "partials/topbar.html" %}
+
+    {% if safe_mode %}
+    <div class="safe-banner">
+      {{ icon('shield') }}
+      <span>内核处于安全模式：本次启动已跳过所有插件。</span>
+      {% if can_kernel('kernel.settings.manage') %}
+      <a class="btn btn-sm" href="{{ url_for('admin_service.settings_page') }}">去关闭安全模式</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <main class="content">
+      {% include "partials/flash.html" %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

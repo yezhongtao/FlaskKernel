@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "partials/ui.html" import icon %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('core.plugin_static', full_id='yezhongtao.tools.preview', filename='preview.css') }}">
+{% endblock %}
+{% block title %}文件预览设置 · {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>文件预览设置</h1>
+    <div class="desc">控制能浏览哪些目录、预览多少内容。只读，不会改动文件。</div>
+  </div>
+  <div class="page-head-actions">
+    <a class="btn btn-outline" href="{{ url_for('.page') }}">{{ icon('eye') }} 去预览</a>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('.settings_page') }}">
+  {% for group in schema %}
+  <section class="card settings-section">
+    <div class="card-head">
+      <div>
+        <h2>{{ group.title }}</h2>
+        <div class="sub">{{ group.desc }}</div>
+      </div>
+      <span class="section-tag">{{ group.section }}</span>
+    </div>
+    <div class="card-body">
+      {% for field in group.fields %}
+        <div class="setting-row">
+          <div>
+            <div class="s-label">{{ field.label }}</div>
+            {% if field.help %}<div class="s-help">{{ field.help }}</div>{% endif %}
+          </div>
+          <div class="s-control">
+            {% if field.type == 'bool' %}
+              <input type="hidden" name="__bool__{{ field.key }}" value="1">
+              <label class="switch">
+                <input type="checkbox" name="{{ field.key }}"
+                       {% if settings.get(field.key) %}checked{% endif %}>
+                <span class="track"></span>
+                <span class="switch-label">{{ '已开启' if settings.get(field.key) else '已关闭' }}</span>
+              </label>
+            {% elif field.type == 'int' %}
+              <input class="input" type="number" name="{{ field.key }}"
+                     value="{{ settings.get(field.key) }}"
+                     min="{{ field.min }}" max="{{ field.max }}" style="max-width:200px">
+            {% else %}
+              <textarea class="textarea mono" name="{{ field.key }}" rows="3"
+                        style="max-width:560px">{% for root in settings.get(field.key) or [] %}{{ root }}
+{% endfor %}</textarea>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+
+      {% if loop.last %}
+      <hr>
+      <div class="setting-row">
+        <div>
+          <div class="s-label">当前生效范围</div>
+          <div class="s-help">保存后立即生效</div>
+        </div>
+        <div class="s-control">
+          <div class="row-wrap">
+            {% for root in roots %}<code class="pv-root">{{ root }}</code>{% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endfor %}
+
+  <div class="restart-bar">
+    <div class="hint">预览只读取文件，不写、不改、不删。</div>
+    <button class="btn btn-primary" type="submit">{{ icon('save') }} 保存设置</button>
+  </div>
+</form>
+{% endblock %}

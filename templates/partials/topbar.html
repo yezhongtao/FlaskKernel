@@ -1,0 +1,51 @@
+{% from "partials/ui.html" import icon %}
+<header class="topbar">
+  <button class="icon-btn hamburger" id="hamburger" type="button" aria-label="打开导航">
+    {{ icon('menu') }}
+  </button>
+
+  <div class="grow" style="min-width:0">
+    <div class="topbar-title">{{ page_title }}</div>
+    {% if page_sub %}<div class="topbar-sub">{{ page_sub }}</div>{% endif %}
+  </div>
+
+  <div class="topbar-actions">
+    {% if can_kernel('kernel.service.manage') %}
+    <a class="icon-btn" href="{{ url_for('admin_service.service_page') }}" title="服务控制台">
+      {{ icon('power') }}
+    </a>
+    {% endif %}
+    <button class="icon-btn" id="themeToggle" type="button" title="切换主题">
+      <svg class="i" aria-hidden="true"><use href="#i-moon"></use></svg>
+    </button>
+
+    <div class="dropdown">
+      <button class="user-chip" type="button" data-dropdown-toggle aria-haspopup="menu">
+        <span class="avatar">{{ (current_user.username or 'U')[:1] }}</span>
+        <span class="name">{{ current_user.username }}</span>
+        {{ icon('chevron-right', 'i-sm') }}
+      </button>
+      <div class="dropdown-menu" role="menu">
+        <div style="padding:8px 10px 6px">
+          <div class="strong" style="font-size:13px">{{ current_user.username }}</div>
+          <div class="tiny muted">
+            {% if current_user.is_superadmin %}超级管理员{% else %}普通用户{% endif %}
+            · 权限 {{ (current_user.permissions or [])|length }} 项
+          </div>
+        </div>
+        <div class="divider"></div>
+        <a href="{{ url_for('auth.profile') }}">{{ icon('user') }} 个人中心</a>
+        {% if can_kernel('kernel.users.manage') %}
+        <a href="{{ url_for('admin_users.users_page') }}">{{ icon('users') }} 用户管理</a>
+        {% endif %}
+        {% if can_kernel('kernel.settings.manage') %}
+        <a href="{{ url_for('admin_service.settings_page') }}">{{ icon('gear') }} 系统设置</a>
+        {% endif %}
+        <div class="divider"></div>
+        <form method="post" action="{{ url_for('auth.logout') }}">
+          <button type="submit">{{ icon('logout') }} 退出登录</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</header>

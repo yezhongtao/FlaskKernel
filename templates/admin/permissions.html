@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% from "partials/ui.html" import icon, badge, empty %}
+{% block title %}权限总览 · {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>权限总览</h1>
+    <div class="desc">
+      权限码统一为 <code>&lt;来源&gt;.&lt;短码&gt;</code>：内核权限是 <code>kernel.*</code>，
+      插件权限是 <code>&lt;author.group.name&gt;.&lt;短码&gt;</code>。超管默认拥有全部权限。
+      点每行右侧的 <strong>眼睛</strong> 看权限全码、说明和持有该权限的账号。
+    </div>
+  </div>
+  <div class="page-head-actions">
+    <a class="btn btn-primary" href="{{ url_for('admin_users.users_page') }}">{{ icon('users') }} 用户管理</a>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="stat-ico">{{ icon('key', 'i-lg') }}</div>
+    <div><div class="stat-val">{{ total_codes }}</div><div class="stat-label">可分配权限码</div></div>
+  </div>
+  <div class="stat">
+    <div class="stat-ico info">{{ icon('plugin', 'i-lg') }}</div>
+    <div><div class="stat-val">{{ plugin_perm_count }}</div><div class="stat-label">插件声明权限点</div></div>
+  </div>
+  <div class="stat">
+    <div class="stat-ico ok">{{ icon('users', 'i-lg') }}</div>
+    <div><div class="stat-val">{{ users|length }}</div><div class="stat-label">账号数</div></div>
+  </div>
+</div>
+
+{% if catalog %}
+  {% for group in catalog %}
+  <div class="perm-group">
+    <div class="perm-group-head">
+      <span>
+        {{ group.title }}
+        {% if group.kind == 'kernel' %}<span class="badge badge-info" style="margin-left:6px">内核</span>
+        {% else %}<span class="badge badge-plugin" style="margin-left:6px">插件</span>{% endif %}
+      </span>
+      <span class="badge badge-outline">{{ group['items']|length }} 项</span>
+    </div>
+    <div class="perm-list">
+      {% for item in group['items'] %}
+      {% set owners = holders.get(item.code, []) %}
+      <div class="perm-item">
+        <div class="grow">
+          <div class="strong">{{ item.label }}</div>
+          <div class="code">{{ item.code }}</div>
+        </div>
+        <div class="perm-holders-cell">
+          {% if owners %}
+            <span class="badge badge-outline" title="{{ owners|length }} 个账号显式拥有">
+              {{ icon('users', 'i-sm') }} {{ owners|length }} 人
+            </span>
+          {% else %}
+            <span class="tiny muted">仅超管</span>
+          {% endif %}
+          <button class="icon-btn perm-eye" type="button"
+                  data-perm-detail="{{ item.code }}"
+                  title="查看权限全码 / 说明 / 持有人"
+                  aria-label="查看 {{ item.label }} 详情">
+            {{ icon('eye') }}
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  {{ empty('还没有任何权限点', '安装插件后，插件声明的权限会自动出现在这里', 'key') }}
+{% endif %}
+
+<!-- 权限详情弹窗（全页共用一个，点眼睛填充） -->
+<div class="modal-backdrop" id="permDetailModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>{{ icon('eye') }} 权限详情</h3>
+      <button class="icon-btn" type="button" data-close-modal="permDetailModal" aria-label="关闭">
+        {{ icon('close') }}
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="perm-detail-title" id="permDetailLabel">—</div>
+
+      <div class="perm-detail-code">
+        <code class="mono" id="permDetailCode">—</code>
+        <button class="btn btn-ghost btn-xs" type="button" id="permCopyCode">
+          {{ icon('copy') }} 复制
+        </button>
+      </div>
+
+      <div class="kv mt-3">
+        <div class="kv-row">
+          <span class="kv-key">来源</span>
+          <span class="kv-val" id="permDetailGroup">—</span>
+        </div>
+        <div class="kv-row">
+          <span class="kv-key">持有情况</span>
+          <span class="kv-val" id="permDetailCount">—</span>
+        </div>
+      </div>
+
+      <div class="field-label mt-3">有该项权限的账号</div>
+      <div class="perm-holder-list" id="permDetailHolders"></div>
+
+      <div class="alert alert-info mt-3" id="permSuperNote" style="display:none">
+        {{ icon('info') }}
+        <div class="grow">
+          超级管理员拥有全部权限（<span id="permSuperNames"></span>），不逐条列出。
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" type="button" data-close-modal="permDetailModal">关闭</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="permDetailData" type="application/json">{{ detail|tojson }}</script>
+<script id="permSuperData" type="application/json">{{ superadmins|tojson }}</script>
+<script src="{{ url_for('static', filename='js/pages/permissions.js') }}"></script>
+{% endblock %}

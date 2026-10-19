@@ -1,0 +1,257 @@
+/* ==========================================================================
+   文件预览插件样式
+   ========================================================================== */
+
+.pv-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 12px;
+  font-size: 12.5px;
+}
+.pv-crumb {
+  padding: 3px 8px;
+  border-radius: 7px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.pv-crumb:hover { background: var(--surface-3); color: var(--text); }
+.pv-crumb.on { background: var(--brand-soft); color: var(--brand-strong); font-weight: 600; }
+.pv-sep { color: var(--muted-2); }
+
+.pv-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+/* ---------- 目录树 ---------- */
+.pv-side {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 8px 12px;
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+  position: sticky;
+  top: 12px;
+}
+.pv-side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 6px;
+}
+.pv-tree {
+  list-style: none;
+  margin: 0;
+  padding-left: 10px;
+}
+.pv-tree .pv-tree { padding-left: 14px; border-left: 1px dashed var(--border); margin-left: 6px; }
+.pv-tree li { margin: 1px 0; }
+.pv-dir, .pv-leaf {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 7px;
+  font-size: 12.8px;
+  color: var(--text-2);
+  text-decoration: none;
+}
+.pv-dir { cursor: pointer; font-weight: 600; list-style: none; }
+.pv-dir::-webkit-details-marker { display: none; }
+details.pv-branch > summary { list-style: none; }
+.pv-leaf:hover, .pv-dir:hover { background: var(--surface-3); }
+.pv-leaf.on { background: var(--brand-soft); color: var(--brand-strong); font-weight: 600; }
+.pv-dir .i { color: var(--muted); }
+.pv-leaf .i { color: var(--muted-2); }
+
+/* ---------- 右侧 ---------- */
+.pv-main {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.pv-list-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.pv-list-head h2 { font-size: 15px; }
+.pv-filter { max-width: 260px; }
+
+.pv-table td { padding-top: 8px; padding-bottom: 8px; }
+.pv-name { display: flex; align-items: center; gap: 8px; color: var(--text); text-decoration: none; }
+.pv-name:hover { color: var(--brand-strong); }
+.pv-ico {
+  width: 24px; height: 24px;
+  display: grid; place-items: center;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--muted);
+  flex: 0 0 24px;
+}
+.pv-ico.dir { background: var(--brand-soft); color: var(--brand-strong); }
+
+/* ---------- 文件头 ---------- */
+.pv-file-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.pv-file-title h2 { font-size: 15.5px; word-break: break-all; }
+
+/* ---------- 代码 ---------- */
+.pv-code {
+  background: #0b1220;
+  border: 1px solid #1b2740;
+  border-radius: 12px;
+  overflow: auto;
+  max-height: 68vh;
+}
+.pv-lines {
+  margin: 0;
+  padding: 10px 0 12px;
+  list-style: none;
+  counter-reset: pv-line;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: #d7e2f4;
+}
+.pv-lines li {
+  counter-increment: pv-line;
+  display: flex;
+  gap: 12px;
+  padding: 0 14px 0 0;
+  white-space: pre;
+}
+.pv-lines li::before {
+  content: counter(pv-line);
+  min-width: 44px;
+  padding-right: 10px;
+  text-align: right;
+  color: #475569;
+  user-select: none;
+  border-right: 1px solid #1b2740;
+}
+.pv-lines li:hover { background: rgba(99, 102, 241, .08); }
+
+.tok-kw { color: #c792ea; }
+.tok-str { color: #c3e88d; }
+.tok-num { color: #f78c6c; }
+.tok-com { color: #64748b; font-style: italic; }
+.tok-attr { color: #82aaff; }
+
+/* ---------- 表格 ---------- */
+.pv-table-meta {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.pv-sheet-wrap { overflow: auto; max-height: 68vh; border: 1px solid var(--border); border-radius: 10px; }
+table.pv-sheet { border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
+table.pv-sheet th, table.pv-sheet td {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 10px;
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+table.pv-sheet th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface-2);
+  font-weight: 650;
+  text-align: left;
+}
+table.pv-sheet tr:nth-child(even) td { background: var(--surface-2); }
+
+/* ---------- Word ---------- */
+.pv-doc {
+  max-height: 68vh;
+  overflow: auto;
+  padding: 8px 18px 24px;
+  line-height: 1.8;
+  font-size: 14px;
+}
+.pv-doc h1 { font-size: 22px; margin: 18px 0 10px; }
+.pv-doc h2 { font-size: 18px; margin: 16px 0 8px; }
+.pv-doc h3 { font-size: 16px; margin: 14px 0 6px; }
+.pv-doc h4, .pv-doc h5 { font-size: 14.5px; margin: 12px 0 6px; }
+.pv-doc p { margin: 6px 0; }
+.pv-doc .docx-empty { height: 8px; margin: 0; }
+.pv-doc table.docx-table {
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 13px;
+}
+.pv-doc table.docx-table td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  vertical-align: top;
+}
+
+/* ---------- 媒体 ---------- */
+.pv-media {
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  min-height: 220px;
+}
+.pv-media img { max-width: 100%; max-height: 66vh; border-radius: 8px; }
+.pv-media video { max-width: 100%; max-height: 66vh; border-radius: 8px; background: #000; }
+.pv-audio { gap: 14px; }
+.pv-audio audio { width: 100%; max-width: 520px; }
+.pv-audio-ico {
+  width: 64px; height: 64px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+.pv-pdf {
+  width: 100%;
+  height: 72vh;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.pv-root {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  font-size: 12px;
+}
+
+/* ---------- 手机 ---------- */
+@media (max-width: 900px) {
+  .pv-layout { grid-template-columns: 1fr; }
+  .pv-side {
+    position: static;
+    max-height: 220px;
+  }
+  .pv-media { min-height: 160px; }
+  .pv-code, .pv-sheet-wrap, .pv-doc { max-height: none; }
+  .pv-pdf { height: 60vh; }
+}

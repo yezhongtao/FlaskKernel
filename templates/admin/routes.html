@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "partials/ui.html" import icon, badge, empty %}
+{% block title %}URL 映射 · {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>URL 映射</h1>
+    <div class="desc">
+      表里的「路径」是<strong>命名空间前缀</strong>，不是可直接打开的页面。
+      例如 <code>/auth</code> 只是登录模块前缀，真实页面是 <code>/auth/login</code>。
+      内核前缀改完写回 <code>config.json → kernel.*</code>，重启生效。
+    </div>
+  </div>
+  <div class="page-head-actions">
+    <a class="btn btn-outline" href="{{ url_for('admin.plugins_page') }}">{{ icon('plugin') }} 插件管理</a>
+    <button class="btn" type="button" id="refreshRoutes">{{ icon('refresh') }} 刷新</button>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  {{ icon('info') }}
+  <div class="grow">
+    插件与内核前缀冲突时自动落到 <code>{{ fallback_prefix }}/&lt;full_id&gt;</code>；
+    子插件可以覆盖父插件的同一路径。修改任意路由都会触发冷启动重启。
+  </div>
+</div>
+
+{% set core_routes = routes | selectattr('owner_kind', 'equalto', 'core') | list %}
+{% set plugin_routes = routes | rejectattr('owner_kind', 'equalto', 'core') | list %}
+
+<div class="card">
+  <div class="card-head">
+    <h2>{{ icon('gear') }} 内核前缀</h2>
+    <div class="sub">{{ core_routes|length }} 项 · 对应 config.json 的 kernel 段</div>
+  </div>
+  {% if core_routes %}
+  <div class="table-wrap">
+    <table class="data responsive">
+      <thead>
+        <tr><th>配置项</th><th>当前路径</th><th>示例可访问</th><th class="right">修改</th></tr>
+      </thead>
+      <tbody>
+        {% for r in core_routes %}
+        <tr>
+          <td data-label="配置项"><code>kernel.{{ r.logical_path }}</code></td>
+          <td data-label="当前路径"><code>{{ r.path }}</code></td>
+          <td data-label="示例可访问">
+            {% set sample = samples.get(r.logical_path) %}
+            {% if sample %}
+              <a href="{{ sample }}" target="_blank" rel="noopener">{{ icon('external', 'i-sm') }} <code>{{ sample }}</code></a>
+            {% else %}
+              <span class="tiny muted">需具体文件 / 插件</span>
+            {% endif %}
+          </td>
+          <td data-label="修改" class="actions">
+            <form class="row" data-remap data-route-id="{{ r.id }}" style="gap:6px;justify-content:flex-end">
+              <input class="input" name="path" value="{{ r.path }}" required
+                     style="min-height:34px;width:130px;font-size:13px">
+              <button class="btn btn-sm" type="submit">保存</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    {{ empty('没有内核路由记录', '重启内核后会自动写入', 'route') }}
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>{{ icon('plugin') }} 插件路由</h2>
+    <div class="sub">{{ plugin_routes|length }} 项 · 由 PluginManager 分配</div>
+  </div>
+  {% if plugin_routes %}
+  <div class="table-wrap">
+    <table class="data responsive">
+      <thead>
+        <tr><th>实际路径</th><th>插件</th><th>声明的逻辑前缀</th><th>覆盖</th><th class="right">打开 / 修改</th></tr>
+      </thead>
+      <tbody>
+        {% for r in plugin_routes %}
+        <tr>
+          <td data-label="实际路径"><code>{{ r.path }}</code></td>
+          <td data-label="插件"><span class="mono tiny break">{{ r.owner_id }}</span></td>
+          <td data-label="逻辑前缀"><code>{{ r.logical_path or '-' }}</code></td>
+          <td data-label="覆盖">
+            {% if r.is_override %}{{ badge('覆盖父插件', 'warn') }}{% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td data-label="操作" class="actions">
+            <a class="btn btn-sm btn-ghost" href="{{ r.path }}/" target="_blank" rel="noopener">
+              {{ icon('external') }} 打开
+            </a>
+            <form class="row" data-remap data-route-id="{{ r.id }}" style="gap:6px;justify-content:flex-end">
+              <input class="input" name="path" value="{{ r.path }}" required
+                     style="min-height:34px;width:130px;font-size:13px">
+              <button class="btn btn-sm" type="submit">保存</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    {{ empty('还没有插件注册路由', '安装并启用插件后，这里会自动出现它的 URL', 'plugin') }}
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/routes.js') }}"></script>
+{% endblock %}

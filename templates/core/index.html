@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% from "partials/ui.html" import icon, badge %}
+{% block title %}仪表盘 · {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="row" style="justify-content:space-between;align-items:flex-start;flex-wrap:wrap">
+    <div>
+      <h1>你好，{{ current_user.username }} 👋</h1>
+      <p>{{ app_name }}内核运行正常。插件全部以 package 形式安装，冷启动重启后生效。</p>
+    </div>
+    <div class="hero-actions">
+      {% if can_kernel('kernel.plugins.manage') %}
+      <a class="btn btn-primary btn-sm" href="{{ url_for('admin.plugins_page') }}">{{ icon('plugin') }} 插件管理</a>
+      {% endif %}
+      {% if can_kernel('kernel.service.manage') %}
+      <a class="btn btn-sm" href="{{ url_for('admin_service.service_page') }}">{{ icon('power') }} 服务控制</a>
+      {% endif %}
+      {% if can_kernel('kernel.settings.manage') %}
+      <a class="btn btn-sm" href="{{ url_for('admin_service.settings_page') }}">{{ icon('gear') }} 系统设置</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="stat-ico">{{ icon('plugin', 'i-lg') }}</div>
+    <div>
+      <div class="stat-val">{{ plugin_stats.loaded }}<span class="muted" style="font-size:14px"> / {{ plugin_stats.total }}</span></div>
+      <div class="stat-label">插件已加载 / 总数</div>
+    </div>
+  </div>
+  <div class="stat">
+    <div class="stat-ico ok">{{ icon('users', 'i-lg') }}</div>
+    <div>
+      <div class="stat-val">{{ user_stats.total }}</div>
+      <div class="stat-label">用户（启用 {{ user_stats.active }}）</div>
+    </div>
+  </div>
+  <div class="stat">
+    <div class="stat-ico info">{{ icon('route', 'i-lg') }}</div>
+    <div>
+      <div class="stat-val">{{ route_count }}</div>
+      <div class="stat-label">URL 路由</div>
+    </div>
+  </div>
+  <div class="stat">
+    <div class="stat-ico warn">{{ icon('key', 'i-lg') }}</div>
+    <div>
+      <div class="stat-val">{{ permission_count }}</div>
+      <div class="stat-label">插件权限点</div>
+    </div>
+  </div>
+</div>
+
+<div class="dash-grid">
+  <div>
+    <div class="card">
+      <div class="card-head">
+        <h2>{{ icon('server') }} 服务状态</h2>
+        {% if status.state == 'running' %}{{ badge('运行中', 'success') }}
+        {% elif status.state == 'stopped' %}{{ badge('已停止', 'danger') }}
+        {% else %}{{ badge(status.state or '未知', 'warning') }}{% endif %}
+      </div>
+      <div class="card-body">
+        <div class="service-status">
+          <div class="ring {{ 'up' if status.state == 'running' else ('pending' if status.state == 'pending' else 'down') }}">
+            {{ icon('power', 'i-lg') }}
+          </div>
+          <div class="grow">
+            <div class="strong">
+              {% if status.state == 'running' %}Flask 服务正在运行
+              {% elif status.state == 'stopped' %}Flask 服务已停止
+              {% else %}服务状态：{{ status.state }}{% endif %}
+            </div>
+            <div class="muted small">
+              {% if status.mode == 'guardian' %}守护进程在线（PID {{ status.guardian_pid }}）· 保活{{ '开启' if status.keepalive else '关闭' }}
+              {% else %}独立运行模式（无守护进程）{% endif %}
+            </div>
+          </div>
+          {% if can_kernel('kernel.service.manage') %}
+          <a class="btn btn-sm btn-outline" href="{{ url_for('admin_service.service_page') }}">进入控制台</a>
+          {% endif %}
+        </div>
+
+        <div class="service-meta">
+          <div class="m"><div class="k">监听端口</div><div class="v">{{ status.port or cfg.app.port }}</div></div>
+          <div class="m"><div class="k">进程 PID</div><div class="v mono">{{ status.app_pid or '-' }}</div></div>
+          <div class="m"><div class="k">运行时长</div><div class="v">{{ status.uptime_seconds|uptime }}</div></div>
+          <div class="m"><div class="k">启动时间</div><div class="v">{{ status.app_started_at|dt }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>{{ icon('route') }} 内核 URL</h2>
+        {% if can_kernel('kernel.routes.manage') %}
+        <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.routes_page') }}">修改映射 {{ icon('chevron-right', 'i-sm') }}</a>
+        {% endif %}
+      </div>
+      <div class="card-body tight">
+        <div class="kv">
+          {% for key, path in kernel_urls.as_route_rows() %}
+          <div class="kv-row">
+            <span class="kv-key mono">kernel.{{ key }}</span>
+            <span class="kv-val"><code>{{ path }}</code></span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head">
+        <h2>{{ icon('activity') }} 最近动态</h2>
+        <span class="small muted">今天</span>
+      </div>
+      <div class="card-body tight">
+        {% if activity %}
+        <div class="activity">
+          {% for row in activity %}
+          <div class="activity-item">
+            <span class="a-ico">{{ icon('activity', 'i-sm') }}</span>
+            <div class="a-main">
+              <div class="a-path">{{ row.method or '-' }} {{ row.path or '-' }}</div>
+              <div class="a-meta">
+                {{ row.user if row.user and row.user != '-' else '未登录' }}
+                · {{ row.status or '-' }} · {{ row.duration_ms or 0 }} ms
+                · {{ row.time }}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+          <div class="empty">
+            <div class="empty-ico">{{ icon('activity', 'i-lg') }}</div>
+            <h3>今天还没有访问记录</h3>
+            <p>访问日志写在 data/logs/access-日期.log</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>{{ icon('clock') }} 最近重启</h2></div>
+      <div class="card-body tight">
+        {% if last_restart %}
+        <div class="kv">
+          <div class="kv-row"><span class="kv-key">动作</span><span class="kv-val">{{ last_restart.action or '-' }}</span></div>
+          <div class="kv-row"><span class="kv-key">时间</span><span class="kv-val">{{ last_restart.time|dt }}</span></div>
+          <div class="kv-row"><span class="kv-key">任务</span><span class="kv-val mono tiny">{{ (last_restart.task_id or '-')[:12] }}…</span></div>
+        </div>
+        {% else %}
+        <p class="muted small mb-0">本次启动没有触发冷重启。</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

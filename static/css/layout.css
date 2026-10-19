@@ -1,0 +1,300 @@
+/* ==========================================================================
+   layout.css —— 应用外壳：侧边栏 / 顶栏 / 内容区 / 移动端抽屉
+   ========================================================================== */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ---------- 侧边栏 ---------- */
+.sidebar {
+  width: var(--sidebar-w);
+  flex: 0 0 var(--sidebar-w);
+  background: linear-gradient(180deg, var(--sidebar-bg) 0%, var(--sidebar-bg-2) 100%);
+  color: var(--sidebar-text);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 60;
+  transition: transform .28s var(--ease);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 18px 18px 16px;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+  min-height: var(--topbar-h);
+}
+
+.brand-mark {
+  width: 34px; height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, .4);
+  color: #fff;
+}
+.brand-mark .i { width: 19px; height: 19px; }
+/* 「微」字图标：项目标识用字，不用图形 */
+.brand-mark-word {
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+  padding-bottom: 1px;
+}
+.auth-logo .brand-mark-word { font-size: 22px; }
+
+.brand-text { min-width: 0; }
+.brand-name {
+  font-size: 15px; font-weight: 700; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.brand-sub {
+  font-size: 11px; color: #7c8bab; letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.nav {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 14px 12px 8px;
+  scrollbar-width: thin;
+}
+.nav::-webkit-scrollbar { width: 6px; }
+.nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .12); border-radius: 9px; }
+
+.nav-group { margin-bottom: 14px; }
+.nav-group-title {
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #5c6b87;
+  padding: 6px 12px;
+  font-weight: 700;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  margin-bottom: 2px;
+  border-radius: 10px;
+  color: var(--sidebar-text);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background .16s var(--ease), color .16s var(--ease);
+  position: relative;
+}
+.nav-link .i { color: #7f8fae; transition: color .16s var(--ease); }
+.nav-link:hover { background: rgba(255, 255, 255, .06); color: #fff; }
+.nav-link:hover .i { color: #fff; }
+
+.nav-link.active {
+  background: linear-gradient(90deg, rgba(99, 102, 241, .28), rgba(99, 102, 241, .06));
+  color: var(--sidebar-active);
+  font-weight: 650;
+}
+.nav-link.active .i { color: #c7d2fe; }
+.nav-link.active::before {
+  content: "";
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 18px; border-radius: 0 4px 4px 0;
+  background: linear-gradient(180deg, #818cf8, #a855f7);
+}
+
+.sidebar-foot {
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, .06);
+  font-size: 11.5px;
+  color: #5c6b87;
+}
+.sidebar-foot .dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: #22c55e; margin-right: 6px; box-shadow: 0 0 0 3px rgba(34, 197, 94, .16);
+}
+.sidebar-foot .dot.off { background: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, .16); }
+
+/* ---------- 主区域 ---------- */
+.main {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: var(--sidebar-w);
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  height: var(--topbar-h);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 22px;
+  background: var(--surface);                 /* 旧浏览器回退 */
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(1.6) blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar-title {
+  font-size: 15px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar-sub { font-size: 11.5px; color: var(--muted); }
+
+.topbar-spacer { flex: 1 1 auto; }
+
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+.icon-btn {
+  width: 36px; height: 36px;
+  display: inline-grid; place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .16s var(--ease);
+}
+.icon-btn:hover { color: var(--brand); border-color: var(--brand); background: var(--brand-soft); }
+
+.hamburger { display: none; }
+
+/* 用户菜单 */
+.user-chip {
+  display: flex; align-items: center; gap: 9px;
+  padding: 5px 10px 5px 5px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  transition: all .16s var(--ease);
+  color: var(--text);
+}
+.user-chip:hover { border-color: var(--brand); background: var(--brand-soft); }
+.avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.user-chip .name { font-size: 13px; font-weight: 600; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.dropdown { position: relative; }
+.dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  z-index: 70;
+  display: none;
+  animation: fadeUp .16s var(--ease);
+}
+.dropdown.open .dropdown-menu { display: block; }
+.dropdown-menu a,
+.dropdown-menu button {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+}
+.dropdown-menu a:hover,
+.dropdown-menu button:hover { background: var(--surface-3); color: var(--text); }
+.dropdown-menu .divider { height: 1px; background: var(--border); margin: 5px 4px; }
+.dropdown-menu form { margin: 0; }
+
+/* ---------- 内容 ---------- */
+.content {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 22px 44px;
+  animation: fadeUp .22s var(--ease);
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.page-head h1 { font-size: 21px; letter-spacing: -.01em; }
+.page-head .desc { color: var(--muted); font-size: 13px; margin-top: 4px; max-width: 62ch; }
+.page-head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ---------- 移动端遮罩 ---------- */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 9, 20, .5);
+  backdrop-filter: blur(2px);
+  z-index: 55;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .24s var(--ease);
+}
+.sidebar-overlay.show { opacity: 1; pointer-events: auto; }
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 1024px) {
+  .content { padding: 20px 16px 40px; }
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-lg);
+    width: 268px;
+    flex-basis: 268px;
+  }
+  body.nav-open .sidebar { transform: translateX(0); }
+  .main { margin-left: 0; }
+  .hamburger { display: inline-grid; }
+  .topbar { padding: 0 12px; }
+  .topbar-sub { display: none; }
+  .page-head h1 { font-size: 19px; }
+}
+
+@media (max-width: 560px) {
+  .content { padding: 14px 12px 36px; }
+  .topbar { height: 56px; gap: 8px; }
+  .topbar-title { font-size: 14px; }
+  .user-chip .name { display: none; }
+  .user-chip { padding: 4px; }
+  .page-head { gap: 10px; }
+  .page-head-actions { width: 100%; }
+  .page-head-actions .btn { flex: 1 1 auto; justify-content: center; }
+}

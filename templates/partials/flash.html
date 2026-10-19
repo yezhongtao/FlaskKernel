@@ -1,0 +1,18 @@
+{% from "partials/ui.html" import icon %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flashes">
+    {% for category, message in messages %}
+      {% set kind = 'success' if category == 'success'
+                    else ('error' if category == 'error'
+                    else ('warning' if category in ['warning', 'message'] else 'info')) %}
+      {% set ico = 'check' if kind == 'success'
+                   else ('alert' if kind in ['error', 'warning'] else 'info') %}
+      <div class="alert alert-{{ kind }}" data-auto-dismiss="6000" role="status">
+        {{ icon(ico) }}
+        <div class="grow">{{ message }}</div>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}

@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% from "partials/ui.html" import icon, badge, status_badge, empty %}
+{% block title %}插件管理 · {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>插件管理</h1>
+    <div class="desc">
+      上传 zip 包安装，启停与卸载后写 restart.flag，由守护进程冷启动重启。
+      插件目录：<code>plugins/&lt;author.group.name&gt;/</code>
+    </div>
+  </div>
+  <div class="page-head-actions">
+    <button class="btn btn-primary" type="button" data-open-upload>
+      {{ icon('upload') }} 安装插件
+    </button>
+    <a class="btn btn-outline" href="{{ url_for('admin.routes_page') }}">{{ icon('route') }} URL 映射</a>
+  </div>
+</div>
+
+{% if mode != 'guardian' %}
+<div class="alert alert-warning">
+  {{ icon('alert') }}
+  <div class="grow">
+    <strong>当前是独立运行模式</strong>（没有守护进程）：安装/启停后不会自动重启，
+    需要你手动重启服务；Web 控制台的启动/重启按钮也不可用。
+    用 <code>python main.py</code> 启动即可获得守护进程与完整的 Web 控制能力。
+  </div>
+</div>
+{% endif %}
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="stat-ico">{{ icon('plugin', 'i-lg') }}</div>
+    <div><div class="stat-val">{{ stats.total }}</div><div class="stat-label">插件总数</div></div>
+  </div>
+  <div class="stat">
+    <div class="stat-ico ok">{{ icon('check', 'i-lg') }}</div>
+    <div><div class="stat-val">{{ stats.loaded }}</div><div class="stat-label">已加载</div></div>
+  </div>
+  <div class="stat">
+    <div class="stat-ico bad">{{ icon('alert', 'i-lg') }}</div>
+    <div><div class="stat-val">{{ stats.error }}</div><div class="stat-label">加载错误</div></div>
+  </div>
+  <div class="stat">
+    <div class="stat-ico warn">{{ icon('shield', 'i-lg') }}</div>
+    <div><div class="stat-val">{{ stats.blocked }}</div><div class="stat-label">被依赖阻塞</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-toolbar">
+    <div class="search">
+      {{ icon('search', 'i-sm') }}
+      <input class="input" type="search" id="pluginSearch" placeholder="搜索插件 ID / 名称…" autocomplete="off">
+    </div>
+    <select class="select" id="pluginStatus" style="min-height:36px;width:auto">
+      <option value="">全部状态</option>
+      <option value="loaded">已加载</option>
+      <option value="error">错误</option>
+      <option value="blocked">被阻塞</option>
+      <option value="disabled">已停用</option>
+    </select>
+    <span class="grow"></span>
+    <span class="small muted" id="pluginCount">{{ plugins|length }} 个插件</span>
+  </div>
+
+  {% if plugins %}
+  <div class="table-wrap">
+    <table class="data responsive" id="pluginTable">
+      <thead>
+        <tr>
+          <th>插件</th>
+          <th>版本</th>
+          <th>状态</th>
+          <th>URL 前缀</th>
+          <th>权限</th>
+          <th class="right">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in plugins %}
+        <tr data-id="{{ p.id }}" data-status="{{ p.status if p.enabled else 'disabled' }}"
+            data-search="{{ (p.id ~ ' ' ~ (p.label or '') ~ ' ' ~ (p.description or ''))|lower }}">
+          <td data-label="插件">
+            <div class="strong">{{ p.label or p.name }}</div>
+            <div class="mono tiny muted break">{{ p.id }}</div>
+            {% if p.parent %}<div class="tiny muted">父插件：{{ p.parent }}</div>{% endif %}
+          </td>
+          <td data-label="版本"><span class="mono">{{ p.version or '-' }}</span></td>
+          <td data-label="状态">
+            {{ status_badge(p.status if p.enabled else 'disabled') }}
+            {% if p.last_error %}
+            <div class="tiny text-danger mt-1" style="max-width:280px">{{ p.last_error }}</div>
+            {% endif %}
+          </td>
+          <td data-label="URL 前缀">
+            {% if p.actual_url_prefix %}
+              <a href="{{ p.actual_url_prefix }}/" target="_blank" rel="noopener">
+                <code>{{ p.actual_url_prefix }}</code>
+              </a>
+            {% else %}
+              <code>{{ p.url_prefix or '-' }}</code>
+            {% endif %}
+          </td>
+          <td data-label="权限">
+            <span class="badge badge-outline">{{ perm_counts.get(p.id, 0) }} 项</span>
+          </td>
+          <td data-label="操作" class="actions">
+            {% if p.enabled and p.actual_url_prefix %}
+            <a class="btn btn-sm btn-primary" href="{{ p.actual_url_prefix }}/"
+               target="_blank" rel="noopener">
+              {{ icon('external') }} 打开管理页
+            </a>
+            {% endif %}
+            {% if p.enabled %}
+            <button class="btn btn-sm btn-danger" type="button"
+                    data-action="disable" data-id="{{ p.id }}">停用</button>
+            {% else %}
+            <button class="btn btn-sm btn-success" type="button"
+                    data-action="enable" data-id="{{ p.id }}">启用</button>
+            {% endif %}
+            <button class="btn btn-sm btn-ghost" type="button"
+                    data-action="uninstall" data-id="{{ p.id }}">卸载</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="empty hidden" id="pluginEmpty">
+    {{ empty('没有匹配的插件', '换个关键字，或点右上角「安装插件」上传 zip 包') }}
+  </div>
+  {% else %}
+    {{ empty('还没有安装任何插件', '插件是 zip 包，根目录含 plugin.json 与 hooks.py', 'plugin') }}
+  {% endif %}
+</div>
+
+<!-- 安装插件 -->
+<div class="modal-backdrop" id="uploadModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>{{ icon('upload') }} 安装插件</h3>
+      <button class="icon-btn" type="button" data-close-upload aria-label="关闭">{{ icon('close') }}</button>
+    </div>
+    <form id="uploadForm">
+      <div class="modal-body">
+        <div class="field">
+          <label for="pluginFile">插件包（.zip）</label>
+          <input class="input" type="file" id="pluginFile" name="file" accept=".zip" required>
+          <span class="hint">
+            压缩包根目录需要包含 <code>plugin.json</code> 与 <code>hooks.py</code>；
+            可用 <code>python tools/pack_plugin.py plugins/&lt;id&gt;</code> 打包。
+          </span>
+        </div>
+        <div class="alert alert-info mt-2">
+          {{ icon('info') }}
+          <div class="grow">安装会做字段校验、依赖校验、URL 冲突检查，成功后自动冷启动重启生效。</div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" data-close-upload>取消</button>
+        <button class="btn btn-primary" type="submit" id="uploadBtn">{{ icon('upload') }} 上传并安装</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/plugins.js') }}"></script>
+{% endblock %}

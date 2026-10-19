@@ -1,0 +1,68 @@
+{% from "partials/ui.html" import icon %}
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>正在重启 · {{ app_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
+  <style>
+    body { display: grid; place-items: center; min-height: 100vh; padding: 20px;
+           background: radial-gradient(800px 420px at 50% 0%, var(--brand-soft), transparent 70%), var(--bg); }
+    .restart-card { width: 100%; max-width: 460px; text-align: center;
+                    background: var(--surface); border: 1px solid var(--border);
+                    border-radius: var(--radius-lg); padding: 32px 26px;
+                    box-shadow: var(--shadow); }
+    .restart-ico { width: 62px; height: 62px; margin: 0 auto 16px; border-radius: 18px;
+                   display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); }
+    .restart-ico .spinner { width: 26px; height: 26px; border-width: 3px; }
+    h1 { font-size: 19px; margin-bottom: 8px; }
+    p { color: var(--muted); font-size: 13px; line-height: 1.7; }
+  </style>
+</head>
+<body>
+{% include "partials/sprite.html" %}
+<div class="restart-card">
+  <div class="restart-ico"><span class="spinner"></span></div>
+  <h1>配置已保存，正在重启服务…</h1>
+  <p>
+    页面会自动跳转，通常需要 3-10 秒。
+    {% if port_changed %}
+    <br><strong>端口已改为 {{ new_port }}</strong>，跳转后将访问
+    <code>{{ target_url }}</code>。
+    {% endif %}
+  </p>
+  <p class="small" id="tick">已等待 0 秒</p>
+  <a class="btn btn-primary btn-block" href="{{ target_url }}">{{ icon('external') }} 立即打开管理页面</a>
+</div>
+
+<script>
+(function () {
+  var health = {{ health_url|tojson }};
+  var target = {{ target_url|tojson }};
+  var started = Date.now();
+  var tick = document.getElementById('tick');
+
+  setInterval(function () {
+    var seconds = Math.round((Date.now() - started) / 1000);
+    if (tick) tick.textContent = '已等待 ' + seconds + ' 秒';
+  }, 1000);
+
+  var timer = setInterval(async function () {
+    try {
+      var res = await fetch(health, { cache: 'no-store' });
+      if (res.ok) {
+        var data = await res.json();
+        if (data && data.ok) {
+          clearInterval(timer);
+          window.location.replace(target);
+        }
+      }
+    } catch (e) { /* 服务还没起来，继续等 */ }
+  }, 900);
+})();
+</script>
+</body>
+</html>

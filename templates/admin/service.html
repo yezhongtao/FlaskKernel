@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% from "partials/ui.html" import icon, badge %}
+{% block title %}服务控制台 · {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>服务控制台</h1>
+    <div class="desc">
+      页面上直接启动 / 停止 / 重启 Flask 服务，并管理守护进程的保活开关。
+      指令写入 <code>data/control.json</code>，由守护进程执行；开关状态写回
+      <code>config.json → service.*</code>。
+    </div>
+  </div>
+  <div class="page-head-actions">
+    <a class="btn btn-outline" href="{{ url_for('admin_service.settings_page') }}">{{ icon('gear') }} 系统设置</a>
+    <a class="btn" href="{{ url_for('admin_service.logs_page') }}">{{ icon('list') }} 查看日志</a>
+  </div>
+</div>
+
+{% if not status.web_control %}
+<div class="alert alert-warning">
+  {{ icon('alert') }}
+  <div class="grow">Web 控制台已被禁用（<code>service.web_control = false</code>），下面的按钮会被服务端拒绝。</div>
+</div>
+{% endif %}
+
+<div class="service-hero state-{{ status.state }}" id="serviceHero">
+  <div class="service-status">
+    <div class="ring {{ 'up' if status.state == 'running' else ('pending' if status.state in ['pending','starting'] else 'down') }}" id="stateRing">
+      {{ icon('power', 'i-lg') }}
+    </div>
+    <div class="grow">
+      <div class="row-wrap" style="gap:8px">
+        <h2 id="stateText">
+          {% if status.state == 'running' %}服务运行中
+          {% elif status.state == 'stopped' %}服务已停止
+          {% else %}服务状态：{{ status.state }}{% endif %}
+        </h2>
+        <span id="stateBadge">
+          {% if status.state == 'running' %}{{ badge('running', 'success') }}
+          {% elif status.state == 'stopped' %}{{ badge('stopped', 'danger') }}
+          {% else %}{{ badge(status.state, 'warning') }}{% endif %}
+        </span>
+        {% if status.mode == 'guardian' %}{{ badge('守护进程在线', 'info') }}{% else %}{{ badge('独立运行', 'outline') }}{% endif %}
+      </div>
+      <div class="muted small mt-1" id="stateDesc">
+        {% if status.mode == 'guardian' %}
+          PID {{ status.app_pid or '-' }} · 端口 {{ status.port or '-' }} · 已运行 {{ status.uptime_seconds|uptime }}
+        {% else %}
+          当前没有守护进程，只能执行"停止服务"；启动/重启请用桌面面板或 restart.bat。
+        {% endif %}
+      </div>
+      <div class="service-meta">
+        <div class="m"><div class="k">监听端口</div><div class="v" id="metaPort">{{ status.port or '-' }}</div></div>
+        <div class="m"><div class="k">配置端口</div><div class="v">{{ status.config_port }}</div></div>
+        <div class="m"><div class="k">应用 PID</div><div class="v mono" id="metaPid">{{ status.app_pid or '-' }}</div></div>
+        <div class="m"><div class="k">守护 PID</div><div class="v mono">{{ status.guardian_pid or '-' }}</div></div>
+        <div class="m"><div class="k">运行时长</div><div class="v" id="metaUptime">{{ status.uptime_seconds|uptime }}</div></div>
+        <div class="m"><div class="k">插件 / 用户</div><div class="v">{{ status.counts.plugins }} / {{ status.counts.users }}</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="col" style="gap:8px;min-width:150px">
+    <button class="btn btn-primary btn-block" type="button" data-service-action="restart">
+      {{ icon('refresh') }} 重启服务
+    </button>
+    <button class="btn btn-danger btn-block" type="button" data-service-action="stop">
+      {{ icon('stop') }} 停止服务
+    </button>
+    <button class="btn btn-success btn-block" type="button" data-service-action="start">
+      {{ icon('play') }} 启动服务
+    </button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>{{ icon('gear') }} 控制项</h2>
+    <div class="sub">开关立即写回 config.json，重启后依然保持</div>
+  </div>
+  <div class="card-body">
+    <div class="control-grid">
+      <div class="control-card">
+        <div class="title">{{ icon('shield') }} 保活</div>
+        <div class="desc">
+          app 崩溃后是否自动拉起。关闭后服务异常退出不会被拉起，
+          但仍可以在这里手动"启动服务"。
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="keepaliveSwitch" {% if status.keepalive %}checked{% endif %}>
+          <span class="track"></span>
+          <span class="switch-label" id="keepaliveLabel">{{ '已开启' if status.keepalive else '已关闭' }}</span>
+        </label>
+      </div>
+
+      <div class="control-card">
+        <div class="title">{{ icon('alert') }} 安全模式</div>
+        <div class="desc">
+          开启后，重启时跳过所有插件加载，用于排查坏插件导致的反复崩溃。
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="safeModeSwitch" {% if status.safe_mode %}checked{% endif %}>
+          <span class="track"></span>
+          <span class="switch-label" id="safeModeLabel">{{ '已开启' if status.safe_mode else '已关闭' }}</span>
+        </label>
+      </div>
+
+      <div class="control-card">
+        <div class="title">{{ icon('clock') }} 自动刷新</div>
+        <div class="desc">每 3 秒拉取一次 <code>/service/status.json</code>，页面状态实时更新。</div>
+        <label class="switch">
+          <input type="checkbox" id="autoRefresh" checked>
+          <span class="track"></span>
+          <span class="switch-label">实时刷新</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="alert alert-info mt-3" style="margin-bottom:0">
+      {{ icon('info') }}
+      <div class="grow">
+        停止服务后，如果开启了 <code>service.status_page</code>，守护进程会在同一端口提供
+        「服务已停止 + 启动按钮」引导页，手机也能一键拉起。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>{{ icon('list') }} 最近应用日志</h2>
+    <div class="sub">{{ app_log.file if app_log.ok else '暂无日志' }} · 最后 {{ app_log.lines|length }} 行</div>
+  </div>
+  <div class="card-body tight">
+    {% if app_log.ok and app_log.lines %}
+      <pre class="log-box" id="appLogBox">{% for line in app_log.lines %}<span class="log-line">{{ line|mask_paths }}</span>
+{% endfor %}</pre>
+    {% else %}
+      <p class="muted small mb-0">还没有日志内容。服务启动后这里会显示 <code>data/logs/app.log</code> 的最新几行。</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/service.js') }}"></script>
+{% endblock %}

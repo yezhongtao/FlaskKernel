@@ -1,0 +1,7 @@
+{
+  "roots": [],
+  "max_text_mb": 2,
+  "max_rows": 500,
+  "max_cols": 40,
+  "show_hidden": true
+}

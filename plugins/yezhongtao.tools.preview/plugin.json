@@ -1,0 +1,27 @@
+{
+  "author": "yezhongtao",
+  "group": "tools",
+  "name": "preview",
+  "label": "文件预览",
+  "version": "1.0.0",
+  "description": "通用在线文件预览：代码高亮（文件树/行号/折叠）、Excel/CSV 表格、Word、图片、视频、音频，其它类型给出友好提示。只读，不修改任何文件。",
+  "url_prefix": "/preview",
+  "permissions": {
+    "view": "浏览目录与预览文件",
+    "download": "下载原文件",
+    "settings": "修改预览插件设置"
+  },
+  "uses_permissions": {},
+  "provides": {
+    "preview.api": {
+      "label": "文件预览接口",
+      "methods": [
+        {"name": "roots", "label": "可浏览根目录", "requires_perm": "view"},
+        {"name": "list_dir", "label": "列目录", "requires_perm": "view"},
+        {"name": "preview", "label": "取预览内容", "requires_perm": "view"},
+        {"name": "kind_of", "label": "识别文件类型", "requires_perm": "view"},
+        {"name": "get_settings", "label": "读取设置", "requires_perm": "settings"}
+      ]
+    }
+  }
+}

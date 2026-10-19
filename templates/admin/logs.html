@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "partials/ui.html" import icon %}
+{% block title %}日志 · {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>日志</h1>
+    <div class="desc">
+      应用日志 <code>data/logs/app.log</code>（按天切分）、访问日志
+      <code>data/logs/access-日期.log</code>（JSON Lines）、控制台输出
+      <code>data/logs/console.log</code>。
+    </div>
+  </div>
+  <div class="page-head-actions">
+    <a class="btn btn-outline" href="{{ url_for('admin_service.service_page') }}">{{ icon('power') }} 服务控制台</a>
+    <button class="btn" type="button" id="reloadLogs">{{ icon('refresh') }} 刷新</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="tabs" style="margin:14px 14px 0" role="tablist">
+    <button class="tab active" type="button" data-log-kind="app">应用日志</button>
+    <button class="tab" type="button" data-log-kind="access">访问日志</button>
+    <button class="tab" type="button" data-log-kind="console">控制台输出</button>
+  </div>
+
+  <div class="log-toolbar">
+    <select class="select" id="logFile" data-for="app,console">
+      {% for name in app_files %}
+        <option value="{{ name }}" {% if name == 'console.log' %}data-console="1"{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+
+    <select class="select" id="logDay" data-for="access" style="display:none">
+      {% for day in access_days %}
+        <option value="{{ day }}" {% if day == today %}selected{% endif %}>{{ day }}</option>
+      {% endfor %}
+      {% if not access_days %}<option value="{{ today }}">{{ today }}</option>{% endif %}
+    </select>
+
+    <select class="select" id="logType" data-for="access" style="display:none">
+      <option value="all">全部记录</option>
+      <option value="http">HTTP 访问</option>
+      <option value="plugin_call">插件调用</option>
+    </select>
+
+    <select class="select" id="logLines">
+      <option value="100">100 行</option>
+      <option value="300" selected>300 行</option>
+      <option value="800">800 行</option>
+      <option value="2000">2000 行</option>
+    </select>
+
+    <div class="search" id="logSearchWrap" style="display:none">
+      {{ icon('search', 'i-sm') }}
+      <input class="input" id="logQuery" type="search" placeholder="搜索路径 / 用户 / 接口…">
+    </div>
+
+    <span class="grow"></span>
+    <label class="check" style="margin:0">
+      <input type="checkbox" id="logAuto"> <span>自动刷新</span>
+    </label>
+  </div>
+
+  <div class="card-body tight" id="logBody" style="padding:0">
+    <pre class="log-viewer" id="logText">加载中…</pre>
+    <div class="log-scroll hidden" id="logTableWrap">
+      <table class="log-table">
+        <thead>
+          <tr><th>时间</th><th>类型</th><th>来源</th><th>方法 / 路径</th><th>状态</th><th>耗时</th></tr>
+        </thead>
+        <tbody id="logTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/logs.js') }}"></script>
+{% endblock %}

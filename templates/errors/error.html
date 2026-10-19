@@ -1,0 +1,30 @@
+{% from "partials/ui.html" import icon %}
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ code }} {{ title }} · {{ app_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
+</head>
+<body class="error-page">
+{% include "partials/sprite.html" %}
+<div class="error-card">
+  <div class="error-code">{{ code }}</div>
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
+
+  {% if current_user.is_authenticated %}
+  <div class="row-wrap" style="justify-content:center">
+    <a class="btn btn-primary" href="{{ url_for('core.index') }}">{{ icon('dashboard') }} 返回仪表盘</a>
+    <button class="btn" type="button" onclick="history.back()">{{ icon('arrow-left') }} 上一页</button>
+  </div>
+  {% else %}
+  <a class="btn btn-primary" href="{{ url_for('auth.login') }}">{{ icon('lock') }} 去登录</a>
+  {% endif %}
+</div>
+</body>
+</html>

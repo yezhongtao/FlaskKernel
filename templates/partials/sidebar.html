@@ -1,0 +1,37 @@
+{% from "partials/ui.html" import icon %}
+<aside class="sidebar" id="sidebar">
+  <a class="brand" href="{{ url_for('core.index') }}">
+    <span class="brand-mark brand-mark-word" aria-hidden="true">微</span>
+    <span class="brand-text">
+      <span class="brand-name">{{ app_name }}</span>
+      <span class="brand-sub">Flask Kernel</span>
+    </span>
+  </a>
+
+  <nav class="nav" aria-label="主导航">
+    {% for group in nav_groups %}
+    <div class="nav-group">
+      <div class="nav-group-title">{{ group.name }}</div>
+      {% for item in group['items'] %}
+      <a class="nav-link {% if item.active %}active{% endif %}" href="{{ item.url }}"
+         {% if item.active %}aria-current="page"{% endif %}>
+        {{ icon(item.icon or 'dot') }}
+        <span class="grow">{{ item.label }}</span>
+        {% if item.active %}{{ icon('chevron-right', 'i-sm') }}{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </nav>
+
+  <div class="sidebar-foot">
+    {% if can_kernel('kernel.service.manage') %}
+    <div class="row" style="gap:6px">
+      <span class="dot" data-service-dot
+            data-status-url="{{ url_for('admin_service.service_status') }}"></span>
+      <span>服务监控中</span>
+    </div>
+    {% endif %}
+    <div class="mt-1">v{{ kernel_version }} · {{ current_user.username if current_user.is_authenticated else '未登录' }}</div>
+  </div>
+</aside>
