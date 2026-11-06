@@ -9,14 +9,27 @@ SO_REUSEADDR 语义与 Linux 不同：**端口已被别的进程占用时，绑�
 
 所以启动前必须用 is_port_free() 做一次**独占绑定**探测（不设置
 SO_REUSEADDR），拿到真实占用情况，再决定用主端口还是备用端口。
+
+关于「查端口占用进程」为什么不调 netstat
+----------------------------------------
+内核打包成无控制台的 GUI exe 后，`subprocess.run(["netstat", ...])` 会让
+系统每次都为它新建一个控制台窗口（任务管理器里「TCP/IP Netstat 命令」+
+「控制台窗口主机」一闪一闪）。控制面板每 2 秒刷新一次状态，这个函数就被
+调用一次，于是窗口一直在闪。
+
+所以优先走 Windows 自带的 IP Helper API：
+    GetExtendedTcpTable(..., TCP_TABLE_OWNER_PID_LISTENER, ...)
+一次 ctypes 调用就能拿到「监听端口 → PID」，微秒级、零子进程、不弹窗。
+只有在 API 不可用（极老系统 / 调用失败）时才退回 netstat，
+而且退回时也用 core.subproc.run_hidden 静默执行。
 """
 from __future__ import annotations
 
 import socket
-import subprocess
 import sys
 
 from core.config import PORT_FALLBACKS
+from core.subproc import run_hidden
 
 
 def is_port_free(port: int, host: str = "0.0.0.0") -> bool:
@@ -38,19 +51,113 @@ def is_port_free(port: int, host: str = "0.0.0.0") -> bool:
             pass
 
 
-def find_pid_on_port(port: int) -> list[int]:
-    """返回监听指定端口的进程 PID（仅 Windows 支持，失败返回空列表）。"""
+# --------------------------------------------------------------------------- #
+# 监听端口 → PID（Windows：IP Helper API）
+# --------------------------------------------------------------------------- #
+_AF_INET = 2
+_AF_INET6 = 23
+_TCP_TABLE_OWNER_PID_LISTENER = 3
+_ERROR_INSUFFICIENT_BUFFER = 122
+
+_api = None          # 缓存 iphlpapi 句柄 / 失败标记
+_api_ready = None    # None=未初始化, True=可用, False=不可用
+
+
+def _load_iphlpapi():
+    """加载 iphlpapi.dll 并声明 GetExtendedTcpTable 签名（只需一次）。"""
+    global _api, _api_ready
+    if _api_ready is not None:
+        return _api if _api_ready else None
+
+    _api_ready = False
     if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        api = ctypes.WinDLL("iphlpapi.dll")
+        api.GetExtendedTcpTable.restype = ctypes.c_ulong
+        api.GetExtendedTcpTable.argtypes = [
+            ctypes.c_void_p, ctypes.POINTER(wintypes.DWORD), wintypes.BOOL,
+            wintypes.ULONG, ctypes.c_int, wintypes.ULONG,
+        ]
+        _api = api
+        _api_ready = True
+    except (OSError, AttributeError, ImportError):
+        _api = None
+        _api_ready = False
+    return _api if _api_ready else None
+
+
+def _listening_rows(family: int) -> list[tuple[int, int]]:
+    """返回 [(端口, PID)]，只含 LISTEN 状态的 TCP 连接。"""
+    api = _load_iphlpapi()
+    if api is None:
+        return []
+
+    import ctypes
+    from ctypes import wintypes
+
+    class _Row(ctypes.Structure):
+        _fields_ = [
+            ("dwState", wintypes.DWORD),
+            ("dwLocalAddr", wintypes.DWORD),
+            ("dwLocalPort", wintypes.DWORD),
+            ("dwRemoteAddr", wintypes.DWORD),
+            ("dwRemotePort", wintypes.DWORD),
+            ("dwOwningPid", wintypes.DWORD),
+        ]
+
+    class _Table(ctypes.Structure):
+        _fields_ = [("dwNumEntries", wintypes.DWORD), ("table", _Row * 1)]
+
+    size = wintypes.DWORD(0)
+    ret = api.GetExtendedTcpTable(
+        None, ctypes.byref(size), False, family,
+        _TCP_TABLE_OWNER_PID_LISTENER, 0,
+    )
+    if ret not in (0, _ERROR_INSUFFICIENT_BUFFER):
+        return []
+    if size.value <= 0:
+        return []
+
+    buf = ctypes.create_string_buffer(size.value)
+    ret = api.GetExtendedTcpTable(
+        buf, ctypes.byref(size), False, family,
+        _TCP_TABLE_OWNER_PID_LISTENER, 0,
+    )
+    if ret != 0:
+        return []
+
+    table = ctypes.cast(buf, ctypes.POINTER(_Table)).contents
+    rows = ctypes.cast(ctypes.byref(table, _Table.table.offset),
+                       ctypes.POINTER(_Row))
+    out: list[tuple[int, int]] = []
+    for i in range(int(table.dwNumEntries)):
+        row = rows[i]
+        # dwLocalPort 的低 16 位是网络字节序
+        port = socket.ntohs(row.dwLocalPort & 0xFFFF)
+        out.append((port, int(row.dwOwningPid)))
+    return out
+
+
+def _find_pid_via_api(port: int) -> list[int] | None:
+    """用系统 API 查；API 不可用时返回 None（让调用方退回 netstat）。"""
+    if _load_iphlpapi() is None:
+        return None
+    pids = {pid for p, pid in _listening_rows(_AF_INET) if p == port}
+    pids |= {pid for p, pid in _listening_rows(_AF_INET6) if p == port}
+    return sorted(p for p in pids if p > 0)
+
+
+def _find_pid_via_netstat(port: int) -> list[int]:
+    """兜底：解析 netstat 输出（静默执行，绝不弹窗）。"""
+    try:
+        out = run_hidden(["netstat", "-ano", "-p", "TCP"], timeout=6).stdout or ""
+    except Exception:            # OSError / TimeoutExpired / 解码失败
         return []
     pids: set[int] = set()
-    try:
-        out = subprocess.run(
-            ["netstat", "-ano", "-p", "TCP"],
-            capture_output=True, text=True, timeout=6,
-            encoding="utf-8", errors="replace",
-        ).stdout
-    except (OSError, subprocess.SubprocessError):
-        return []
     for line in out.splitlines():
         fields = line.split()
         if len(fields) < 5:
@@ -61,6 +168,21 @@ def find_pid_on_port(port: int) -> list[int]:
         if pid.isdigit():
             pids.add(int(pid))
     return sorted(pids)
+
+
+def find_pid_on_port(port: int) -> list[int]:
+    """返回监听指定端口的进程 PID（仅 Windows 支持，失败返回空列表）。
+
+    优先 IP Helper API（零子进程、不弹窗），失败才退回 netstat。
+    """
+    if port <= 0 or port > 65535:
+        return []
+    if sys.platform != "win32":
+        return []
+    pids = _find_pid_via_api(port)
+    if pids is not None:
+        return pids
+    return _find_pid_via_netstat(port)
 
 
 def describe_port_owner(port: int) -> str:
@@ -79,12 +201,11 @@ def _process_name(pid: int) -> str:
     if sys.platform != "win32":
         return ""
     try:
-        out = subprocess.run(
-            ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
-            capture_output=True, text=True, timeout=5,
-            encoding="utf-8", errors="replace",
-        ).stdout.strip()
-    except (OSError, subprocess.SubprocessError):
+        out = run_hidden(
+            ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"], timeout=5,
+        ).stdout or ""
+        out = out.strip()
+    except Exception:
         return ""
     if not out or out.startswith("ERROR") or "No tasks" in out:
         return ""
@@ -136,8 +257,6 @@ def patch_fast_getfqdn() -> None:
     global _PATCHED
     if _PATCHED:
         return
-
-    original = socket.getfqdn
 
     def _fast_getfqdn(name: str | None = "") -> str:
         if not name or name in ("0.0.0.0", "::", "::1", "127.0.0.1", "localhost"):

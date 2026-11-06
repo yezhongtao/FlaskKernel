@@ -37,6 +37,7 @@ from core.config import (BASE_DIR, LOGS_DIR, RESTART_FLAG, SAFE_MODE_FILE,
 from core.log import get_logger
 from core.procutil import kill_by_port, kill_process_tree, pid_alive
 from core.store import save_json
+from core.subproc import no_window_kwargs
 
 logger = get_logger("guardian")
 
@@ -415,6 +416,8 @@ class Guardian:
             self.proc = subprocess.Popen(
                 cmd, cwd=str(self.base_dir), env=env,
                 stdout=self._console_handle(), stderr=subprocess.STDOUT,
+                # 打包成 GUI exe 后，拉起 app 也不额外弹控制台窗口
+                **no_window_kwargs(),
             )
             logger.info("启动应用进程 PID=%s: %s", self.proc.pid, " ".join(cmd))
             service_control.write_guardian_state(
