@@ -64,6 +64,13 @@
 | [ERP 插件说明](plugins/yezhongtao.erp.bridge/README.md) | 页面、HTTP API、内部接口、设置、只读保证 |
 | [文件预览插件说明](plugins/yezhongtao.tools.preview/README.md) | 能力、页面、接口、安全 |
 
+### 最近更新（2026-11-06）
+
+- 修复打包成 GUI exe 后「TCP/IP Netstat 命令」「控制台窗口主机」不停闪窗：
+  端口占用查询改用 IP Helper API（`GetExtendedTcpTable`）、进程存活判断改用
+  `OpenProcess`/`GetExitCodeProcess`，**不再启动任何外部命令**；
+  剩下的 `taskkill` 与兜底 `netstat` 统一走新增的 `core/subproc.run_hidden`（不弹窗）。
+
 ### 最近更新（2026-10-19）
 
 - 统一命名为 **Flask 微内核**，图标改为「微」字；登录页移除默认账号提示；
@@ -208,6 +215,7 @@ FlaskKernel/
 │   ├── service_control.py      运行时状态 + 控制通道（runtime.json / control.json）
 │   ├── netutil.py              端口检测、端口回退、占用进程查询、getfqdn 修复
 │   ├── procutil.py             杀进程树、按端口清理、PID 存活判断
+│   ├── subproc.py              静默执行外部命令（不弹控制台窗口）
 │   └── alert.py                webhook 告警推送
 ├── user/
 │   ├── __init__.py
@@ -683,20 +691,49 @@ def migrate_schema() -> None:
 | 函数 | 说明 |
 |---|---|
 | `is_port_free(port, host)` | **独占**探测（不设 SO_REUSEADDR，避免 Windows 假成功） |
-| `find_pid_on_port(port)` | 列表：监听该端口的 PID |
+| `find_pid_on_port(port)` | 列表：监听该端口的 PID（**不再调 netstat**，走 IP Helper API） |
 | `describe_port_owner(port)` | 人类可读："端口 80 已被占用：PID 31528 (python.exe)" |
 | `resolve_port(preferred, fallbacks, host)` → `(port, fell_back)` | 端口回退 |
 | `patch_fast_getfqdn()` | 替换 `socket.getfqdn`，修 Windows 绑定卡顿 |
 | `fqdn_is_slow(host, threshold)` | 诊断用 |
 
+**为什么不用 netstat（2026-11-06 修）**
+
+内核打成无控制台的 GUI exe 后，`subprocess.run(["netstat", ...])` 会让系统**每次都为它
+新建一个控制台窗口**——任务管理器里表现为「TCP/IP Netstat 命令」+「控制台窗口主机」
+一闪一闪。控制面板每 2 秒刷新一次状态，每次都要查端口占用，于是窗口一直在闪。
+
+现在改走 Windows 自带的 IP Helper API：
+
+```
+GetExtendedTcpTable(..., TCP_TABLE_OWNER_PID_LISTENER, ...)   # IPv4 / IPv6 各查一次
+```
+
+一次 ctypes 调用（约 0.4ms）就能拿到「监听端口 → PID」，**零子进程、不弹窗**，
+比 netstat 快两个数量级。只有 API 不可用（极老系统）时才退回 netstat，
+而且退回时也走 `core.subproc.run_hidden` 静默执行。
+
 #### 3.23 core/procutil.py
 
 | 函数 | 说明 |
 |---|---|
-| `kill_process_tree(proc, log)` | 跨平台杀进程树（Windows `taskkill /F /T`） |
+| `kill_process_tree(proc, log)` | 跨平台杀进程树（Windows `taskkill /F /T`，静默） |
 | `kill_pid(pid, log)` | 按 PID 杀树（排除自身） |
 | `kill_by_port(port, log)` | 清理占用端口的进程 |
-| `pid_alive(pid)` | 进程是否存活 |
+| `pid_alive(pid)` | 进程是否存活（Windows 走 `OpenProcess` + `GetExitCodeProcess`，零子进程） |
+
+> `pid_alive()` 被状态快照每 2 秒调用一次。原来用 `tasklist` 判断，同样会每 2 秒
+> 弹一个控制台窗口；现在走 kernel32，200 次调用只要 1.5ms。
+
+#### 3.23.1 core/subproc.py
+
+| 函数 | 说明 |
+|---|---|
+| `no_window_kwargs()` | 返回 `creationflags=CREATE_NO_WINDOW` + `startupinfo(SW_HIDE)`；非 Windows 返回 `{}` |
+| `run_hidden(cmd, timeout, ...)` | 静默跑命令，参数/返回值同 `subprocess.run(capture_output=True, text=True)` |
+
+内核里**所有**对外部命令的调用都必须经过这里（`netstat` / `tasklist` / `taskkill`，
+以及守护进程拉起 app 的 `Popen`），否则打包成 GUI exe 后会闪黑框。
 
 #### 3.24 core/alert.py
 
